@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Industrial Monitor | Bosch</title>
+
+<style>
+:root {
+    --primary: #005691;
+    --primary-light: #eaf3fa;
+    --bg: #f5f7fa;
+    --white: #ffffff;
+    --text: #263445;
+    --muted: #8492a6;
+    --border: #e8edf2;
+    --green: #159b72;
+    --red: #df5454;
+    --orange: #e99a37;
+    --shadow: 0 3px 15px rgba(25, 45, 70, .045);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Inter, "Segoe UI", Arial, sans-serif; background: var(--bg); color: var(--text); }
+.app { display: flex; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar { width: 245px; background: white; border-right: 1px solid var(--border); padding: 28px 18px; position: fixed; height: 100vh; display: flex; flex-direction: column; z-index: 10; }
+.brand { display: flex; align-items: center; gap: 11px; padding: 0 10px 35px; }
+.brand-icon { background: var(--primary); color: white; width: 39px; height: 39px; border-radius: 9px; display: grid; place-items: center; font-size: 21px; font-weight: 800; }
+.brand h2 { font-size: 16px; font-weight: 750; letter-spacing: -.5px; }
+.brand span { color: var(--muted); font-size: 11px; }
+.menu-title { font-size: 10px; color: #a0aab8; font-weight: 700; letter-spacing: 1.2px; padding: 0 12px; margin-bottom: 12px; }
+.menu-item { padding: 12px; border-radius: 8px; margin-bottom: 5px; color: #66758a; font-size: 13px; display: flex; gap: 12px; align-items: center; font-weight: 550; }
+.menu-item.active { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+.menu-item .ico { font-size: 17px; width: 20px; text-align: center; }
+.sidebar-bottom { margin-top: auto; background: #f7f9fb; border: 1px solid var(--border); border-radius: 10px; padding: 15px; }
+.sidebar-bottom p { font-size: 11px; color: var(--muted); margin-bottom: 7px; }
+.connection { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; }
+.dot.off { background: var(--red); }
+
+/* MAIN */
+.main { margin-left: 245px; width: calc(100% - 245px); padding: 30px 38px; max-width: 1800px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; gap: 15px; }
+.page-title h1 { font-size: 24px; letter-spacing: -.8px; font-weight: 750; }
+.page-title p { color: var(--muted); font-size: 13px; margin-top: 6px; }
+.top-actions { display: flex; align-items: center; gap: 12px; }
+.updated { font-size: 11px; color: var(--muted); text-align: right; }
+.btn { border: none; background: var(--primary); color: white; border-radius: 7px; padding: 11px 16px; font-weight: 650; font-size: 12px; cursor: pointer; transition: .2s; }
+.btn:hover { background: #004473; transform: translateY(-1px); }
+
+/* SECTION */
+.section-heading { display: flex; justify-content: space-between; align-items: center; margin: 28px 0 15px; }
+.section-heading h2 { font-size: 15px; font-weight: 750; }
+.section-heading span { font-size: 11px; color: var(--muted); }
+
+/* KPI */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 17px; }
+.kpi { background: white; border: 1px solid var(--border); border-radius: 11px; padding: 21px; box-shadow: var(--shadow); }
+.kpi-top { display: flex; justify-content: space-between; align-items: center; }
+.kpi-label { color: var(--muted); font-size: 12px; font-weight: 550; }
+.kpi-icon { width: 35px; height: 35px; background: var(--primary-light); color: var(--primary); border-radius: 8px; display: grid; place-items: center; font-size: 17px; }
+.kpi-value { font-size: 28px; font-weight: 750; margin-top: 13px; letter-spacing: -1px; }
+.kpi-foot { color: var(--muted); font-size: 11px; margin-top: 6px; }
+
+/* MACHINE CARDS */
+.machine-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.machine { background: white; border: 1px solid var(--border); border-radius: 11px; padding: 18px; box-shadow: var(--shadow); cursor: pointer; transition: .2s; }
+.machine:hover, .machine.selected { border-color: #82b4d8; box-shadow: 0 4px 16px rgba(0,86,145,.09); }
+.machine-head { display: flex; justify-content: space-between; align-items: center; }
+.machine-name { font-size: 14px; font-weight: 750; }
+.status { font-size: 10px; padding: 5px 9px; border-radius: 20px; font-weight: 700; background: #e8f7f0; color: var(--green); }
+.status.warning { color: #bc7b21; background: #fff5e5; }
+.status.off { color: #66758a; background: #eef1f4; }
+.status.danger { color: var(--red); background: #ffeded; }
+.machine-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+.metric-label { font-size: 10px; color: var(--muted); }
+.metric-value { font-size: 18px; font-weight: 750; margin-top: 5px; }
+.machine-footer { border-top: 1px solid var(--border); margin-top: 17px; padding-top: 12px; display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }
+
+/* PANELS & ANALYTICS */
+.panel { background: white; border: 1px solid var(--border); border-radius: 11px; padding: 21px; box-shadow: var(--shadow); }
+.analytics-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 17px; margin-bottom: 17px; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }
+.panel-header h3 { font-size: 14px; font-weight: 750; }
+.panel-header p { font-size: 11px; color: var(--muted); margin-top: 5px; }
+select, input { border: 1px solid var(--border); border-radius: 7px; background: white; padding: 9px 11px; color: var(--text); font-size: 11px; outline: none; }
+select:focus, input:focus { border-color: var(--primary); }
+.chart-wrap { height: 245px; width: 100%; position: relative; }
+canvas { width: 100%; height: 100%; }
+
+/* TABLE */
+.table-panel { margin-top: 18px; }
+.table-tools { display: flex; gap: 9px; }
+.table-container { width: 100%; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 11px; }
+th { color: #8290a2; background: #f8fafc; text-align: left; padding: 13px 12px; font-size: 10px; font-weight: 700; }
+td { padding: 14px 12px; border-bottom: 1px solid #f0f2f5; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #fafcff; }
+.machine-tag { color: var(--primary); font-weight: 700; }
+.status-text { font-weight: 700; font-size: 10px; }
+.empty { padding: 35px; text-align: center; color: var(--muted); font-size: 12px; }
+.footer { padding: 24px 0 8px; text-align: center; color: #a3adba; font-size: 10px; }
+
+@media(max-width:1100px) {
+    .kpis, .machine-grid, .analytics-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media(max-width:700px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; width: 100%; padding: 22px 15px; }
+    .kpis, .machine-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+<!-- SIDEBAR -->
+<aside class="sidebar">
+    <div class="brand">
+        <div class="brand-icon">B</div>
+        <div>
+            <h2>INDUSTRIAL</h2>
+            <span>MONITORING SYSTEM</span>
+        </div>
+    </div>
+    <div class="menu-title">MENU PRINCIPAL</div>
+    <div class="menu-item active"><span class="ico">▦</span>Dashboard</div>
+    <div class="menu-item"><span class="ico">◉</span>Máquinas</div>
+    <div class="menu-item"><span class="ico">⌁</span>Monitoramento</div>
+    <div class="menu-item"><span class="ico">▤</span>Histórico</div>
+    <div class="sidebar-bottom">
+        <p>STATUS DO COLETOR</p>
+        <div class="connection">
+            <span class="dot off" id="connectionDot"></span>
+            <span id="connectionText">Conectando...</span>
+        </div>
+    </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+    <header class="topbar">
+        <div class="page-title">
+            <h1>Dashboard — Critérios Torno CNC</h1>
+            <p>Monitoramento baseado nas faixas: OK, NOK (Atenção) e Crítico.</p>
+        </div>
+        <div class="top-actions">
+            <div class="updated">Última atualização<br><strong id="lastUpdate">--:--:--</strong></div>
+            <button class="btn" onclick="baixarCSV()">↓ Exportar CSV</button>
+        </div>
+    </header>
+
+    <!-- INDICADORES -->
+    <div class="section-heading">
+        <h2>Visão geral</h2>
+        <span>Dados coletados em tempo real</span>
+    </div>
+    <section class="kpis">
+        <div class="kpi">
+            <div class="kpi-top"><span class="kpi-label">Total de leituras</span><div class="kpi-icon">▤</div></div>
+            <div class="kpi-value" id="totalLeituras">0</div>
+            <div class="kpi-foot">Registros armazenados</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-top"><span class="kpi-label">Máquinas monitoradas</span><div class="kpi-icon">⚙</div></div>
+            <div class="kpi-value" id="totalMaquinas">0</div>
+            <div class="kpi-foot">Equipamentos identificados</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-top"><span class="kpi-label">Operacionais (OK)</span><div class="kpi-icon">✓</div></div>
+            <div class="kpi-value" id="totalOperacionais">0</div>
+            <div class="kpi-foot">Conforme critérios definidos</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-top"><span class="kpi-label">Novas leituras</span><div class="kpi-icon">↗</div></div>
+            <div class="kpi-value" id="novasLeituras">0</div>
+            <div class="kpi-foot">Última coleta realizada</div>
+        </div>
+    </section>
+
+    <!-- MÁQUINAS -->
+    <div class="section-heading">
+        <h2>Monitoramento de máquinas</h2>
+        <span id="machineCount">0 equipamentos</span>
+    </div>
+    <section class="machine-grid" id="machineGrid">
+        <div class="panel empty">Aguardando dados da API...</div>
+    </section>
+
+    <!-- ANALYTICS: LINHA E RESUMO -->
+    <div class="section-heading">
+        <h2>Análise de desempenho e distribuição</h2>
+        <span>Temperaturas e estados operacionais</span>
+    </div>
+    <section class="analytics-grid">
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h3>Variação de temperatura</h3>
+                    <p>Histórico das últimas 60 leituras</p>
+                </div>
+                <select id="machineSelect"><option value="">Selecione uma máquina</option></select>
+            </div>
+            <div class="chart-wrap"><canvas id="temperatureChart"></canvas></div>
+        </div>
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h3>Resumo operacional</h3>
+                    <p>Distribuição dos equipamentos</p>
+                </div>
+            </div>
+            <div id="operationalSummary"></div>
+        </div>
+    </section>
+
+    <!-- NOVOS GRÁFICOS: BOXPLOT, COLUNA AGRUPADA E TRANSIÇÃO -->
+    <div class="section-heading">
+        <h2>Análises Estatísticas e Critérios</h2>
+        <span>Boxplot por Classificação, Colunas Agrupadas e Transição de Estados</span>
+    </div>
+    <section class="analytics-grid" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h3>Boxplot por Critério</h3>
+                    <p>OK vs NOK vs Crítico</p>
+                </div>
+            </div>
+            <div class="chart-wrap"><canvas id="boxplotChart"></canvas></div>
+        </div>
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h3>Colunas Agrupadas</h3>
+                    <p>Temp. Média e Vibração por Máquina</p>
+                </div>
+            </div>
+            <div class="chart-wrap"><canvas id="groupedColumnChart"></canvas></div>
+        </div>
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h3>Gráfico de Transição</h3>
+                    <p>Fluxo de mudanças de status</p>
+                </div>
+            </div>
+            <div class="chart-wrap"><canvas id="transitionChart"></canvas></div>
+        </div>
+    </section>
+
+    <!-- TABLE -->
+    <section class="panel table-panel">
+        <div class="panel-header">
+            <div>
+                <h3>Últimas leituras</h3>
+                <p>Dados recebidos pela API</p>
+            </div>
+            <div class="table-tools">
+                <input id="searchInput" placeholder="Buscar máquina..." oninput="renderTabela()">
+                <select id="statusFilter" onchange="renderTabela()">
+                    <option value="">Todos os status</option>
+                    <option value="ok">OK (Normal)</option>
+                    <option value="nok">NOK (Atenção)</option>
+                    <option value="critico">Crítico</option>
+                </select>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>DATA / HORA</th>
+                        <th>MÁQUINA</th>
+                        <th>TEMPERATURA</th>
+                        <th>VIBRAÇÃO</th>
+                        <th>PRESSÃO</th>
+                        <th>PRODUÇÃO</th>
+                        <th>STATUS</th>
+                    </tr>
+                </thead>
+                <tbody id="readingsTable">
+                    <tr><td colspan="8" class="empty">Aguardando leituras...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <div class="footer">INDUSTRIAL MONITORING SYSTEM · Atualização automática</div>
+</main>
+</div>
+
+<script>
+const API = location.protocol === "file:" ? "http://localhost:5000" : "";
+const COMM = 15000;
+const INTERVALO = 3000;
+
+let dadosAtuais = null;
+let serieCSV = {};
+let seen = {};
+let ultimoTotal = null;
+let novasLeituras = 0;
+let carregando = false;
+let chaveSelect = "";
+
+const norm = s => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+
+function numero(v, casas = 1) {
+    if (v === null || v === undefined || v === "") return "--";
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas }) : String(v);
+}
+
+function escapar(v) {
+    return String(v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function dataHora(t) {
+    const d = Date.parse(t);
+    return Number.isNaN(d) ? String(t ?? "--") : new Date(d).toLocaleString("pt-BR");
+}
+
+function statusClasse(status) {
+    const s = norm(status);
+    if (/CRITIC|FALHA|PERIGO/.test(s)) return "danger";
+    if (/NOK|ATENC|ALERTA|MANUT/.test(s)) return "warning";
+    return "";
+}
+
+function statusOperacional(status) {
+    return /^(OK|NORMAL|OPERANDO|OPERACIONAL|ATIVO|ONLINE)$/.test(norm(status));
+}
+
+function semComunicacao(m) {
+    if (m.qtd === null || m.qtd === undefined) return false;
+    const s = seen[m.maquina];
+    return !!s && (Date.now() - s.t) > COMM;
+}
+
+function categoria(m) {
+    if (semComunicacao(m)) return "off";
+    if (statusOperacional(m.status)) return "ok";
+    const c = statusClasse(m.status);
+    if (c === "danger") return "bad";
+    if (c === "warning") return "warn";
+    return "other";
+}
+
+function atualizarPainel(data) {
+    dadosAtuais = data;
+    const maquinas = data.maquinas || [];
+    const agora = Date.now();
+
+    maquinas.forEach(m => {
+        const s = seen[m.maquina];
+        if (!s || s.qtd !== m.qtd) seen[m.maquina] = { qtd: m.qtd, t: agora };
+    });
+
+    const total = Number(data.total || 0);
+    if (data.coletor && data.coletor.novas !== undefined) {
+        novasLeituras = data.coletor.novas;
+    } else if (ultimoTotal !== null && total > ultimoTotal) {
+        novasLeituras = total - ultimoTotal;
+    }
+    ultimoTotal = total;
+
+    document.getElementById("totalLeituras").textContent = total.toLocaleString("pt-BR");
+    document.getElementById("totalMaquinas").textContent = maquinas.length;
+    document.getElementById("totalOperacionais").textContent = maquinas.filter(m => categoria(m) === "ok").length;
+    document.getElementById("novasLeituras").textContent = novasLeituras;
+    document.getElementById("lastUpdate").textContent = data.coletor?.ultimo_sucesso || "--:--:--";
+
+    const conectado = !!data.coletor?.ok;
+    document.getElementById("connectionDot").className = conectado ? "dot" : "dot off";
+    document.getElementById("connectionText").textContent = conectado ? "Coletor conectado" : "Coletor sem acesso à API";
+
+    renderMaquinas(maquinas);
+    renderSelect(maquinas);
+    renderResumo(maquinas);
+    renderTabela();
+    desenharBoxplot();
+    desenharColunaAgrupada();
+    desenharTransicao();
+}
+
+function renderMaquinas(maquinas) {
+    const grid = document.getElementById("machineGrid");
+    document.getElementById("machineCount").textContent = `${maquinas.length} equipamentos`;
+    if (!maquinas.length) {
+        grid.innerHTML = '<div class="panel empty">Nenhuma máquina encontrada.</div>';
+        return;
+    }
+    const selecionada = document.getElementById("machineSelect").value;
+    grid.innerHTML = maquinas.map(m => {
+        const off = semComunicacao(m);
+        const status = off ? "Sem comunicação" : (m.status || "OK");
+        const classe = off ? "off" : statusClasse(m.status);
+        return `
+        <div class="machine ${m.maquina === selecionada ? "selected" : ""}" data-nome="${escapar(m.maquina)}" onclick="selecionarMaquina(this.dataset.nome)">
+            <div class="machine-head">
+                <div class="machine-name">⚙ ${escapar(m.maquina)}</div>
+                <span class="status ${classe}">${escapar(status)}</span>
+            </div>
+            <div class="machine-metrics">
+                <div><div class="metric-label">Temperatura</div><div class="metric-value">${numero(m.temperatura)} °C</div></div>
+                <div><div class="metric-label">Vibração</div><div class="metric-value">${numero(m.vibracao, 2)}</div></div>
+                <div><div class="metric-label">Pressão</div><div class="metric-value">${numero(m.pressao)}</div></div>
+                <div><div class="metric-label">Produção</div><div class="metric-value">${numero(m.producao, 0)}</div></div>
+            </div>
+            <div class="machine-footer"><span>ID: ${escapar(m.id ?? "--")}</span><span>${numero(m.qtd, 0)} leituras</span></div>
+        </div>`;
+    }).join("");
+}
+
+function renderSelect(maquinas) {
+    const select = document.getElementById("machineSelect");
+    const nomes = maquinas.map(m => m.maquina).sort();
+    const chave = nomes.join("|");
+    if (chave !== chaveSelect) {
+        const atual = select.value;
+        select.innerHTML = nomes.map(n => `<option value="${escapar(n)}">${escapar(n)}</option>`).join("");
+        select.value = nomes.includes(atual) ? atual : (nomes[0] || "");
+        chaveSelect = chave;
+    }
+    desenharGrafico();
+}
+
+function selecionarMaquina(nome) {
+    document.getElementById("machineSelect").value = nome;
+    desenharGrafico();
+}
+
+function obterSerie(nome) {
+    const s = dadosAtuais?.serie?.[nome];
+    if (Array.isArray(s) && s.length) return s;
+    return serieCSV[nome] || [];
+}
+
+async function carregarSerieCSV() {
+    try {
+        const r = await fetch(API + "/api/csv", { cache: "no-store" });
+        if (!r.ok) return;
+        const linhas = (await r.text()).replace(/^\uFEFF/, "").trim().split(/\r?\n/);
+        linhas.shift();
+        const por = {};
+        for (const l of linhas) {
+            if (!l) continue;
+            const c = l.split(";");
+            const maquina = c[2], t = Date.parse(c[1]);
+            const temp = c[3] === "" || c[3] == null ? NaN : Number(c[3]);
+            if (!maquina || !Number.isFinite(temp)) continue;
+            (por[maquina] = por[maquina] || []).push([Number.isNaN(t) ? 0 : t, temp]);
+        }
+        for (const n in por) {
+            por[n].sort((a, b) => a[0] - b[0]);
+            por[n] = por[n].slice(-60);
+        }
+        serieCSV = por;
+    } catch (e) {
+        console.error("Falha ao carregar série do CSV:", e);
+    }
+}
+
+function desenharGrafico() {
+    const canvas = document.getElementById("temperatureChart");
+    if(!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height, dpr = window.devicePixelRatio || 1;
+    if (!w || !h) return;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const nome = document.getElementById("machineSelect").value;
+    const pontos = obterSerie(nome).map(p => Number(p[1])).filter(v => Number.isFinite(v)).slice(-60);
+    const left = 42, right = 12, top = 15, bottom = 30;
+    const chartW = w - left - right, chartH = h - top - bottom;
+
+    if (!pontos.length) {
+        ctx.fillStyle = "#8492a6"; ctx.font = "12px Arial"; ctx.textAlign = "center";
+        ctx.fillText("Sem dados de temperatura", w / 2, h / 2);
+        return;
+    }
+
+    let min = Math.min(...pontos), max = Math.max(...pontos);
+    const margem = (max - min) * .2 || 2;
+    min -= margem; max += margem;
+
+    ctx.strokeStyle = "#edf1f5"; ctx.lineWidth = 1; ctx.fillStyle = "#8a98a9"; ctx.font = "10px Arial"; ctx.textAlign = "right";
+    for (let i = 0; i <= 4; i++) {
+        const y = top + chartH * i / 4;
+        const valor = max - (max - min) * i / 4;
+        ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(w - right, y); ctx.stroke();
+        ctx.fillText(valor.toFixed(1), left - 8, y + 3);
+    }
+
+    const coords = pontos.map((v, i) => ({
+        x: left + (pontos.length === 1 ? chartW / 2 : i / (pontos.length - 1) * chartW),
+        y: top + (max - v) / (max - min) * chartH
+    }));
+
+    const gradient = ctx.createLinearGradient(0, top, 0, h);
+    gradient.addColorStop(0, "rgba(0,86,145,.20)"); gradient.addColorStop(1, "rgba(0,86,145,0)");
+
+    ctx.beginPath(); ctx.moveTo(coords[0].x, top + chartH);
+    coords.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(coords[coords.length - 1].x, top + chartH);
+    ctx.closePath(); ctx.fillStyle = gradient; ctx.fill();
+
+    ctx.beginPath();
+    coords.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.strokeStyle = "#005691"; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.stroke();
+}
+
+function desenharBoxplot() {
+    const canvas = document.getElementById("boxplotChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height, dpr = window.devicePixelRatio || 1;
+    if (!w || !h) return;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const bx = dadosAtuais?.boxplot || { ok: {min:0, q1:0, mediana:0, q3:0, max:0}, nok: {min:0, q1:0, mediana:0, q3:0, max:0}, critico: {min:0, q1:0, mediana:0, q3:0, max:0} };
+    const categorias = [
+        { label: "OK", data: bx.ok, color: "#159b72" },
+        { label: "NOK", data: bx.nok, color: "#e99a37" },
+        { label: "Crítico", data: bx.critico, color: "#df5454" }
+    ];
+
+    const left = 35, right = 15, top = 20, bottom = 30;
+    const chartW = w - left - right, chartH = h - top - bottom;
+
+    let globalMax = Math.max(...categorias.map(c => c.data.max || 100), 80);
+
+    ctx.strokeStyle = "#edf1f5"; ctx.fillStyle = "#8492a6"; ctx.font = "9px Arial"; ctx.textAlign = "right";
+    for (let i = 0; i <= 4; i++) {
+        const y = top + chartH * i / 4;
+        const val = globalMax - (globalMax * i / 4);
+        ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(w - right, y); ctx.stroke();
+        ctx.fillText(val.toFixed(0), left - 5, y + 3);
+    }
+
+    const colW = chartW / categorias.length;
+    categorias.forEach((cat, idx) => {
+        const cx = left + idx * colW + colW / 2;
+        const d = cat.data;
+        const scale = y => top + (globalMax - y) / globalMax * chartH;
+
+        const yMax = scale(d.max);
+        const yQ3 = scale(d.q3);
+        const yMed = scale(d.mediana);
+        const yQ1 = scale(d.q1);
+        const yMin = scale(d.min);
+
+        ctx.strokeStyle = cat.color; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(cx, yMax); ctx.lineTo(cx, yMin); ctx.stroke();
+
+        const boxWidth = colW * 0.45;
+        ctx.fillStyle = cat.color + "33";
+        ctx.fillRect(cx - boxWidth/2, yQ3, boxWidth, yQ1 - yQ3);
+        ctx.strokeStyle = cat.color;
+        ctx.strokeRect(cx - boxWidth/2, yQ3, boxWidth, yQ1 - yQ3);
+
+        ctx.strokeStyle = "#263445"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx - boxWidth/2, yMed); ctx.lineTo(cx + boxWidth/2, yMed); ctx.stroke();
+
+        ctx.fillStyle = "#263445"; ctx.font = "bold 10px Arial"; ctx.textAlign = "center";
+        ctx.fillText(cat.label, cx, h - 10);
+    });
+}
+
+function desenharColunaAgrupada() {
+    const canvas = document.getElementById("groupedColumnChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height, dpr = window.devicePixelRatio || 1;
+    if (!w || !h) return;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const maquinas = (dadosAtuais?.maquinas || []).slice(0, 4);
+    if (!maquinas.length) return;
+
+    const left = 30, right = 15, top = 20, bottom = 35;
+    const chartW = w - left - right, chartH = h - top - bottom;
+    const maxTemp = 100;
+
+    const groupW = chartW / maquinas.length;
+    maquinas.forEach((m, idx) => {
+        const gx = left + idx * groupW;
+        const temp = Number(m.temperatura || 0);
+        const vib = Number(m.vibracao || 0) * 15;
+
+        const hTemp = (temp / maxTemp) * chartH;
+        const hVib = (vib / maxTemp) * chartH;
+
+        ctx.fillStyle = "#005691";
+        ctx.fillRect(gx + 4, top + chartH - hTemp, groupW * 0.35, hTemp);
+
+        ctx.fillStyle = "#159b72";
+        ctx.fillRect(gx + groupW * 0.42, top + chartH - hVib, groupW * 0.35, hVib);
+
+        ctx.fillStyle = "#66758a"; ctx.font = "9px Arial"; ctx.textAlign = "center";
+        ctx.fillText(m.maquina.substring(0, 8), gx + groupW/2, h - 12);
+    });
+}
+
+function desenharTransicao() {
+    const canvas = document.getElementById("transitionChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height, dpr = window.devicePixelRatio || 1;
+    if (!w || !h) return;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const trans = dadosAtuais?.transicoes || {};
+    const chaves = Object.keys(trans).slice(0, 5);
+
+    if (!chaves.length) {
+        ctx.fillStyle = "#8492a6"; ctx.font = "11px Arial"; ctx.textAlign = "center";
+        ctx.fillText("Nenhuma transição registrada", w / 2, h / 2);
+        return;
+    }
+
+    let maxVal = Math.max(...Object.values(trans), 5);
+    const left = 15, right = 15, top = 20, bottom = 30;
+    const chartW = w - left - right, chartH = h - top - bottom;
+    const barH = chartH / chaves.length - 6;
+
+    chaves.forEach((k, idx) => {
+        const val = trans[k];
+        const bw = (val / maxVal) * (chartW - 80);
+        const y = top + idx * (barH + 6);
+
+        ctx.fillStyle = "#eaf3fa";
+        ctx.fillRect(left + 80, y, chartW - 80, barH);
+
+        ctx.fillStyle = "#005691";
+        ctx.fillRect(left + 80, y, Math.max(bw, 4), barH);
+
+        ctx.fillStyle = "#263445"; ctx.font = "10px Arial"; ctx.textAlign = "left";
+        ctx.fillText(k.substring(0, 16), left, y + barH/2 + 3);
+
+        ctx.textAlign = "right";
+        ctx.fillText(val, w - right, y + barH/2 + 3);
+    });
+}
+
+function renderResumo(maquinas) {
+    const el = document.getElementById("operationalSummary");
+    const total = maquinas.length || 1;
+    const cont = k => maquinas.filter(m => categoria(m) === k).length;
+    const itens = [
+        ["OK (Normal)", cont("ok"), "#159b72"],
+        ["NOK (Atenção)", cont("warn"), "#e99a37"],
+        ["Crítico", cont("bad"), "#df5454"],
+        ["Sem comunicação", cont("off") + cont("other"), "#8492a6"]
+    ];
+    el.innerHTML = `
+        <div style="margin-bottom:24px">
+            <div style="display:flex;justify-content:space-between;align-items:end;margin-bottom:10px">
+                <span style="font-size:12px;color:#8492a6">Equipamentos monitorados</span>
+                <strong style="font-size:25px">${maquinas.length}</strong>
+            </div>
+            <div style="height:9px;background:#edf1f5;border-radius:10px;overflow:hidden;display:flex">
+                ${itens.map(i => `<div style="width:${i[1] / total * 100}%;background:${i[2]}"></div>`).join("")}
+            </div>
+        </div>
+        ${itens.map(i => `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin:17px 0">
+                <div style="display:flex;align-items:center;gap:9px;font-size:12px;color:#66758a">
+                    <span style="width:9px;height:9px;border-radius:50%;background:${i[2]}"></span>
+                    ${i[0]}
+                </div>
+                <strong style="font-size:13px">${i[1]}</strong>
+            </div>`).join("")}
+    `;
+}
+
+function renderTabela() {
+    if (!dadosAtuais) return;
+    const busca = document.getElementById("searchInput").value.toLowerCase();
+    const filtro = document.getElementById("statusFilter").value;
+    const recentes = (dadosAtuais.recentes || []).filter(r => {
+        const nome = String(r.maquina || "").toLowerCase();
+        const correspondeNome = nome.includes(busca);
+        
+        let catR = "ok";
+        const temp = Number(r.temperatura || 0);
+        const vib = Number(r.vibracao || 0);
+        const st = norm(r.status);
+        if (/CRITIC|FALHA/.test(st) || temp > 67 || vib > 3.6) catR = "critico";
+        else if (/NOK|ATENC|ALERTA|MANUT/.test(st) || (temp > 62 && temp <= 67) || (vib > 2.8 && vib <= 3.6)) catR = "nok";
+
+        const correspondeStatus = !filtro || (filtro === catR);
+        return correspondeNome && correspondeStatus;
+    });
+    const tbody = document.getElementById("readingsTable");
+    if (!recentes.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty">Nenhuma leitura encontrada.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = recentes.map(r => {
+        const cls = statusClasse(r.status);
+        const cor = cls === "danger" ? "#df5454" : cls === "warning" ? "#e99a37" : "#159b72";
+        const txtStatus = cls === "danger" ? "Crítico" : cls === "warning" ? "NOK (Atenção)" : "OK (Normal)";
+        return `
+        <tr>
+            <td>${escapar(r.id ?? "--")}</td>
+            <td>${escapar(dataHora(r.timestamp))}</td>
+            <td class="machine-tag">${escapar(r.maquina ?? "--")}</td>
+            <td>${numero(r.temperatura)} °C</td>
+            <td>${numero(r.vibracao, 2)}</td>
+            <td>${numero(r.pressao)}</td>
+            <td>${numero(r.producao, 0)}</td>
+            <td><span class="status-text" style="color:${cor}">${txtStatus}</span></td>
+        </tr>`;
+    }).join("");
+}
+
+function baixarCSV() { window.location.href = API + "/api/csv"; }
+
+async function atualizar() {
+    if (carregando) return;
+    carregando = true;
+    try {
+        const ctrl = new AbortController();
+        const tmo = setTimeout(() => ctrl.abort(), 8000);
+        let resposta;
+        try {
+            resposta = await fetch(API + "/api/estado", { cache: "no-store", signal: ctrl.signal });
+        } finally {
+            clearTimeout(tmo);
+        }
+        if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+        const data = await resposta.json();
+        if (!data.serie) await carregarSerieCSV();
+        atualizarPainel(data);
+    } catch (erro) {
+        console.error("Falha ao atualizar painel:", erro);
+        document.getElementById("connectionDot").className = "dot off";
+        document.getElementById("connectionText").textContent = "Sem contato com o coletor";
+    } finally {
+        carregando = false;
+    }
+}
+
+document.getElementById("machineSelect").addEventListener("change", desenharGrafico);
+window.addEventListener("resize", () => {
+    desenharGrafico();
+    desenharBoxplot();
+    desenharColunaAgrupada();
+    desenharTransicao();
+});
+
+atualizar();
+setInterval(atualizar, INTERVALO);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) atualizar(); });
+</script>
+</body>
+</html>

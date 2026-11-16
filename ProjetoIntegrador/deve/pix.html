@@ -1,0 +1,1334 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meu Controle Financeiro</title>
+
+<!-- Biblioteca para importar e exportar Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: #f7f8fa;
+    color: #202735;
+    font-family: Arial, sans-serif;
+}
+
+header {
+    background: white;
+    border-bottom: 1px solid #e8ebef;
+    padding: 25px 7%;
+}
+
+header h1 { margin: 0; font-size: 22px; }
+header p { color: #858d99; font-size: 13px; }
+
+main {
+    max-width: 1050px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+button {
+    border: 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.primary { background: #315efb; color: white; }
+.secondary { background: #eef2ff; color: #315efb; }
+.neutral { background: #f0f2f5; color: #505967; }
+.danger { background: #fff0f0; color: #c74343; }
+
+.file-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.file-tools small {
+    flex-basis: 100%;
+    color: #858d99;
+    font-size: 11px;
+}
+
+.summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 13px;
+    margin-bottom: 22px;
+}
+
+.metric, .card, .quick {
+    background: white;
+    border: 1px solid #e8ebef;
+    border-radius: 12px;
+}
+
+.metric { padding: 18px; }
+.metric span { color: #858d99; font-size: 12px; }
+.metric strong {
+    display: block;
+    font-size: 24px;
+    margin: 8px 0 4px;
+}
+.metric small { color: #858d99; }
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid #e8ebef;
+    margin-bottom: 20px;
+    overflow-x: auto;
+}
+
+.tab {
+    background: transparent;
+    color: #858d99;
+    padding: 12px 16px;
+}
+
+.tab.active {
+    color: #315efb;
+    border-bottom: 2px solid #315efb;
+}
+
+.section { display: none; }
+.section.active { display: block; }
+
+.card, .quick {
+    padding: 20px;
+    margin-bottom: 15px;
+}
+
+.card h2, .quick h2 {
+    font-size: 16px;
+    margin: 0 0 5px;
+}
+
+.description {
+    color: #858d99;
+    font-size: 12px;
+    margin-bottom: 15px;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 11px;
+    border: 1px solid #dfe3e9;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: Arial;
+}
+
+.quick-row {
+    display: flex;
+    gap: 8px;
+}
+
+.quick-row input { flex: 1; min-width: 0; }
+
+.person {
+    border-top: 1px solid #edf0f3;
+    padding: 17px 0;
+}
+
+.person:first-child { border-top: 0; }
+
+.person-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.person-name { font-weight: bold; }
+
+.muted {
+    color: #858d99;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.balance {
+    text-align: right;
+    font-size: 17px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.balance small {
+    display: block;
+    font-size: 11px;
+    color: #858d99;
+    font-weight: normal;
+}
+
+.progress {
+    height: 5px;
+    background: #edf0f3;
+    border-radius: 10px;
+    margin: 12px 0;
+    overflow: hidden;
+}
+
+.progress span {
+    display: block;
+    height: 100%;
+    background: #16845b;
+}
+
+.installments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin: 12px 0;
+}
+
+.installment {
+    border: 1px solid #e8ebef;
+    border-radius: 8px;
+    padding: 8px;
+    color: #858d99;
+    font-size: 11px;
+}
+
+.installment b {
+    display: block;
+    color: #202735;
+    margin-bottom: 3px;
+}
+
+.installment.paid {
+    background: #eaf7f0;
+    border-color: #d8eee2;
+}
+
+.installment.paid b { color: #16845b; }
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.bidu-row {
+    padding: 16px 0;
+    border-top: 1px solid #edf0f3;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.bidu-row:first-child { border-top: 0; }
+
+.alert {
+    padding: 12px;
+    border-radius: 8px;
+    background: #fff5e6;
+    color: #98620c;
+    font-size: 12px;
+    margin-top: 15px;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #0007;
+    justify-content: center;
+    align-items: center;
+    padding: 15px;
+    z-index: 10;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 13px;
+    padding: 22px;
+    width: 100%;
+    max-width: 470px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-content h2 { font-size: 17px; }
+
+.field { margin: 12px 0; }
+
+.field label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.history-item {
+    border-top: 1px solid #eee;
+    padding: 12px 0;
+    font-size: 13px;
+}
+
+#message, #statusImportacao {
+    font-size: 12px;
+    color: #16845b;
+    margin-top: 8px;
+}
+
+@media(max-width:650px) {
+    .summary { grid-template-columns: 1fr 1fr; }
+    .summary .metric:last-child { grid-column: 1/-1; }
+    .quick-row { flex-wrap: wrap; }
+    .quick-row input { flex-basis: 100%; }
+    .person-top { flex-wrap: wrap; }
+    .balance { text-align: left; }
+    .tabs button { padding: 10px 8px; }
+    .file-tools button { flex: 1 1 100%; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Meu Controle Financeiro</h1>
+    <p>Controle de recebimentos e pagamentos</p>
+
+    <div class="file-tools">
+        <button class="primary" onclick="document.getElementById('arquivoImportacao').click()">
+            📂 Importar Excel / CSV
+        </button>
+
+        <button class="secondary" onclick="salvarPlanilha()">
+            💾 Salvar alterações
+        </button>
+
+        <button class="neutral" onclick="exportarBackup()">
+            ⬇ Backup JSON
+        </button>
+
+        <input type="file"
+               id="arquivoImportacao"
+               accept=".xlsx,.xls,.csv"
+               hidden
+               onchange="importarPlanilha(event)">
+
+        <small id="statusImportacao">
+            Importe uma planilha para carregar seus dados. As alterações podem ser exportadas em um novo Excel.
+        </small>
+    </div>
+</header>
+
+<main>
+
+<div class="summary">
+    <div class="metric">
+        <span>A receber</span>
+        <strong id="totalReceber">R$ 0,00</strong>
+        <small id="recebido">R$ 0,00 recebidos</small>
+    </div>
+
+    <div class="metric">
+        <span>Devo ao Bidu</span>
+        <strong id="totalBidu">R$ 0,00</strong>
+        <small id="pagoBidu">R$ 0,00 pagos</small>
+    </div>
+
+    <div class="metric">
+        <span>Parcelas previstas</span>
+        <strong id="totalParcelas">R$ 0,00</strong>
+        <small>Valores cadastrados</small>
+    </div>
+</div>
+
+<div class="tabs">
+    <button class="tab active" data-tab="receber">A receber</button>
+    <button class="tab" data-tab="bidu">Bidu</button>
+    <button class="tab" data-tab="historico">Histórico</button>
+</div>
+
+<section id="receber" class="section active">
+
+    <div class="quick">
+        <h2>Atualizar por comando</h2>
+        <p class="description">Exemplo: Camila pagou 500 reais.</p>
+
+        <div class="quick-row">
+            <input id="comando" placeholder="Digite o pagamento...">
+            <button class="primary" onclick="executarComando()">Atualizar</button>
+            <button class="neutral" onclick="falar()">🎙 Falar</button>
+        </div>
+
+        <div id="message"></div>
+    </div>
+
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <div>
+                <h2>Pessoas que me devem</h2>
+                <p class="description">Acompanhe os valores e parcelas.</p>
+            </div>
+            <button class="primary" onclick="abrirPessoa()">+ Adicionar</button>
+        </div>
+
+        <div id="listaPessoas"></div>
+    </div>
+</section>
+
+<section id="bidu" class="section">
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <div>
+                <h2>Valores do Bidu</h2>
+                <p class="description">Controle dos valores que preciso pagar.</p>
+            </div>
+            <button class="primary" onclick="abrirBidu()">+ Adicionar</button>
+        </div>
+
+        <div id="listaBidu"></div>
+
+        <div class="alert">
+            Os valores de Nana e Camila são partes da composição
+            do valor de novembro. Não são somados novamente ao total
+            devido ao Bidu.
+        </div>
+    </div>
+</section>
+
+<section id="historico" class="section">
+    <div class="card">
+        <h2>Histórico de movimentações</h2>
+        <div id="listaHistorico"></div>
+    </div>
+</section>
+
+</main>
+
+<!-- MODAL PESSOA -->
+
+<div class="modal" id="modalPessoa">
+<div class="modal-content">
+    <h2 id="tituloPessoa">Adicionar pessoa</h2>
+
+    <div class="field">
+        <label>Nome</label>
+        <input id="nomePessoa">
+    </div>
+
+    <div class="field">
+        <label>Valor total</label>
+        <input id="valorPessoa" type="number" step="0.01">
+    </div>
+
+    <div class="field">
+        <label>Descrição</label>
+        <input id="descricaoPessoa">
+    </div>
+
+    <div class="field">
+        <label>Parcelas (uma por linha: mês,valor)</label>
+        <textarea id="parcelasPessoa" rows="6"
+        placeholder="Dez/2026,1000&#10;Jan/2027,1500"></textarea>
+    </div>
+
+    <div class="modal-actions">
+        <button class="neutral" onclick="fecharPessoa()">Cancelar</button>
+        <button class="primary" onclick="salvarPessoa()">Salvar</button>
+    </div>
+</div>
+</div>
+
+<!-- MODAL BIDU -->
+
+<div class="modal" id="modalBidu">
+<div class="modal-content">
+    <h2 id="tituloBidu">Adicionar valor</h2>
+
+    <div class="field">
+        <label>Mês</label>
+        <input id="mesBidu">
+    </div>
+
+    <div class="field">
+        <label>Valor</label>
+        <input id="valorBidu" type="number" step="0.01">
+    </div>
+
+    <div class="field">
+        <label>Descrição</label>
+        <input id="descricaoBidu">
+    </div>
+
+    <div class="modal-actions">
+        <button class="neutral" onclick="fecharBidu()">Cancelar</button>
+        <button class="primary" onclick="salvarBidu()">Salvar</button>
+    </div>
+</div>
+</div>
+
+<script>
+
+// ======================================
+// CONFIGURAÇÃO E DADOS
+// ======================================
+
+const dinheiro = v => Number(v || 0).toLocaleString('pt-BR',{
+    style:'currency',
+    currency:'BRL'
+});
+
+const parcela = (mes,valor) => ({
+    id:crypto.randomUUID(),
+    mes,
+    valor,
+    pago:0
+});
+
+const dadosIniciais = {
+    pessoas:[
+        {
+            id:'camila',
+            nome:'Camila',
+            total:7000,
+            descricao:'Devia R$ 7.000. Pagou R$ 1.000 em novembro. Restam R$ 6.000.',
+            parcelas:[
+                {...parcela('Nov/2026',1000),pago:1000},
+                parcela('Dez/2026',1000),
+                parcela('Jan/2027',1500),
+                parcela('Fev/2027',1500),
+                parcela('Mar/2027',1500),
+                parcela('Abr/2027',500)
+            ]
+        },
+        {
+            id:'mae',
+            nome:'Mãe',
+            total:2600,
+            descricao:'R$ 1.000 no crédito em 3x desde dezembro + R$ 1.600 em 3x desde janeiro.',
+            parcelas:[
+                parcela('Dez/2026',333.33),
+                parcela('Jan/2027',333.33),
+                parcela('Fev/2027',333.34),
+                parcela('Jan/2027',533.33),
+                parcela('Fev/2027',533.33),
+                parcela('Mar/2027',533.34)
+            ]
+        },
+        {
+            id:'nana',
+            nome:'Nana',
+            total:750,
+            descricao:'Pagamento único em dezembro.',
+            parcelas:[
+                parcela('Dez/2026',750)
+            ]
+        }
+    ],
+
+    bidu:[
+        {
+            id:'novembro',
+            mes:'Novembro/2026',
+            total:7500,
+            pago:0,
+            descricao:'Total devido ao Bidu.',
+            partes:[
+                {nome:'Meu dinheiro',valor:2600},
+                {nome:'Nana',valor:4500},
+                {nome:'Camila',valor:580}
+            ]
+        },
+        {
+            id:'dezembro',
+            mes:'Dezembro/2026',
+            total:6000,
+            pago:0,
+            descricao:'Eles vão se organizar para pagar.',
+            partes:[]
+        }
+    ],
+
+    historico:[]
+};
+
+let dados;
+
+try {
+    dados=JSON.parse(localStorage.getItem('meuControleFinanceiro'));
+} catch(e) {}
+
+if(!dados || !Array.isArray(dados.pessoas) || !Array.isArray(dados.bidu)){
+    dados=dadosIniciais;
+}
+
+dados.historico=dados.historico || [];
+
+let pessoaEditando=null;
+let biduEditando=null;
+
+// ======================================
+// SALVAMENTO
+// ======================================
+
+function salvar(){
+    localStorage.setItem('meuControleFinanceiro',JSON.stringify(dados));
+    atualizar();
+}
+
+function registrarHistorico(nome,valor,descricao){
+    dados.historico.push({
+        nome,
+        valor,
+        descricao,
+        data:new Date().toLocaleString('pt-BR')
+    });
+}
+
+// ======================================
+// CÁLCULOS
+// ======================================
+
+function saldo(p){
+    return Math.max(0,p.total-p.parcelas.reduce((s,x)=>s+x.pago,0));
+}
+
+function recebido(p){
+    return p.parcelas.reduce((s,x)=>s+x.pago,0);
+}
+
+// ======================================
+// ATUALIZAÇÃO DA TELA
+// ======================================
+
+function atualizar(){
+
+    const receber=dados.pessoas.reduce((s,p)=>s+saldo(p),0);
+    const recebidoTotal=dados.pessoas.reduce((s,p)=>s+recebido(p),0);
+    const biduTotal=dados.bidu.reduce((s,b)=>s+b.total-b.pago,0);
+    const biduPago=dados.bidu.reduce((s,b)=>s+b.pago,0);
+
+    document.getElementById('totalReceber').textContent=dinheiro(receber);
+    document.getElementById('recebido').textContent=dinheiro(recebidoTotal)+' recebidos';
+
+    document.getElementById('totalBidu').textContent=dinheiro(biduTotal);
+    document.getElementById('pagoBidu').textContent=dinheiro(biduPago)+' pagos';
+
+    document.getElementById('totalParcelas').textContent=dinheiro(
+        dados.pessoas.reduce((s,p)=>s+p.parcelas.reduce((a,x)=>a+x.valor-x.pago,0),0)
+    );
+
+    document.getElementById('listaPessoas').innerHTML=dados.pessoas.map(p=>{
+
+        const porcentagem=p.total ? recebido(p)/p.total*100 : 0;
+
+        return `
+        <div class="person">
+            <div class="person-top">
+                <div>
+                    <div class="person-name">${escapar(p.nome)}</div>
+                    <div class="muted">${escapar(p.descricao || '')}</div>
+                </div>
+
+                <div class="balance">
+                    ${dinheiro(saldo(p))}
+                    <small>Restante de ${dinheiro(p.total)}</small>
+                </div>
+            </div>
+
+            <div class="progress">
+                <span style="width:${Math.min(100,porcentagem)}%"></span>
+            </div>
+
+            <div class="installments">
+                ${p.parcelas.map(x=>`
+                    <div class="installment ${x.pago>=x.valor?'paid':''}">
+                        <b>${escapar(x.mes)}</b>
+                        ${dinheiro(x.valor)}
+                        ${x.pago ? '<br>Pago: '+dinheiro(x.pago):''}
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="actions">
+                <button class="secondary" onclick="pagarPessoa('${p.id}')">Registrar pagamento</button>
+                <button class="neutral" onclick="editarPessoa('${p.id}')">Editar</button>
+                <button class="danger" onclick="excluirPessoa('${p.id}')">Excluir</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('listaBidu').innerHTML=dados.bidu.map(b=>`
+        <div class="bidu-row">
+            <div>
+                <b>${escapar(b.mes)}</b>
+                <div class="muted">${escapar(b.descricao || '')}</div>
+
+                <div class="muted">
+                    ${(b.partes||[]).map(x=>escapar(x.nome)+': '+dinheiro(x.valor)).join(' · ')}
+                </div>
+
+                <div class="muted">
+                    Pago: ${dinheiro(b.pago)} |
+                    Falta: ${dinheiro(b.total-b.pago)}
+                </div>
+            </div>
+
+            <div style="text-align:right">
+                <b>${dinheiro(b.total)}</b>
+                <div class="actions" style="margin-top:8px">
+                    <button class="secondary" onclick="pagarBidu('${b.id}')">Pagar</button>
+                    <button class="neutral" onclick="editarBidu('${b.id}')">Editar</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('listaHistorico').innerHTML=
+        dados.historico.length
+        ? [...dados.historico].reverse().map(h=>`
+            <div class="history-item">
+                <b>${escapar(h.nome)}</b> — ${dinheiro(h.valor)}
+                <div class="muted">${escapar(h.data)} · ${escapar(h.descricao)}</div>
+            </div>
+        `).join('')
+        : '<p class="muted">Nenhum pagamento registrado.</p>';
+}
+
+// ======================================
+// SEGURANÇA DE TEXTO NA TELA
+// ======================================
+
+function escapar(valor){
+    return String(valor ?? '').replace(/[&<>"']/g,c=>({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+    })[c]);
+}
+
+// ======================================
+// PAGAMENTOS
+// ======================================
+
+function registrarPagamento(p,valor,origem){
+
+    if(!(valor>0) || valor>saldo(p)+0.01){
+        throw Error('Valor inválido ou maior que o saldo.');
+    }
+
+    let restante=valor;
+
+    for(const x of p.parcelas){
+
+        const disponivel=x.valor-x.pago;
+        const parte=Math.min(disponivel,restante);
+
+        if(parte>0){
+            x.pago+=parte;
+            restante-=parte;
+        }
+
+        if(restante<0.001) break;
+    }
+
+    registrarHistorico(p.nome,valor,origem);
+    salvar();
+}
+
+function pagarPessoa(id){
+
+    const p=dados.pessoas.find(x=>x.id===id);
+
+    const v=prompt('Quanto '+p.nome+' pagou? Saldo: '+dinheiro(saldo(p)));
+
+    if(v===null)return;
+
+    try{
+        registrarPagamento(p,Number(v.replace(',','.')),'Pagamento registrado');
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+function pagarBidu(id){
+
+    const b=dados.bidu.find(x=>x.id===id);
+
+    const v=prompt('Quanto foi pago ao Bidu? Falta: '+dinheiro(b.total-b.pago));
+
+    if(v===null)return;
+
+    const valor=Number(v.replace(',','.'));
+
+    if(!(valor>0) || valor>b.total-b.pago+0.01){
+        alert('Valor inválido.');
+        return;
+    }
+
+    b.pago+=valor;
+    registrarHistorico('Pagamento ao Bidu',valor,b.mes);
+    salvar();
+}
+
+// ======================================
+// COMANDOS DE TEXTO E VOZ
+// ======================================
+
+function executarComando(){
+
+    const texto=document.getElementById('comando').value.trim();
+
+    const match=texto.match(/^(.+?)\s+pagou\s+(tudo|[\d.,]+)(?:\s+reais?)?$/i);
+
+    if(!match){
+        document.getElementById('message').textContent=
+            'Exemplo: Camila pagou 500 ou Nana pagou tudo.';
+        return;
+    }
+
+    const p=dados.pessoas.find(x=>
+        x.nome.toLowerCase()===match[1].trim().toLowerCase()
+    );
+
+    if(!p){
+        document.getElementById('message').textContent='Pessoa não encontrada.';
+        return;
+    }
+
+    const valor=match[2].toLowerCase()==='tudo'
+        ? saldo(p)
+        : Number(match[2].replace(/\./g,'').replace(',','.'));
+
+    try{
+        registrarPagamento(p,valor,'Atualizado por comando de voz/texto');
+
+        document.getElementById('message').textContent=
+            'Pagamento registrado! Novo saldo: '+dinheiro(saldo(p));
+
+        document.getElementById('comando').value='';
+
+    }catch(e){
+        document.getElementById('message').textContent=e.message;
+    }
+}
+
+function falar(){
+
+    const Speech=window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if(!Speech){
+        alert('Reconhecimento de voz não disponível neste navegador. Digite o pagamento.');
+        return;
+    }
+
+    const reconhecimento=new Speech();
+    reconhecimento.lang='pt-BR';
+
+    reconhecimento.onresult=function(e){
+        document.getElementById('comando').value=
+            e.results[0][0].transcript;
+
+        document.getElementById('message').textContent=
+            'Confira o que foi reconhecido e clique em Atualizar.';
+    };
+
+    reconhecimento.onerror=function(){
+        document.getElementById('message').textContent=
+            'Não foi possível utilizar o microfone.';
+    };
+
+    reconhecimento.start();
+}
+
+// ======================================
+// CADASTRAR E EDITAR PESSOAS
+// ======================================
+
+function abrirPessoa(p=null){
+
+    pessoaEditando=p?p.id:null;
+
+    document.getElementById('tituloPessoa').textContent=
+        p?'Editar pessoa':'Adicionar pessoa';
+
+    document.getElementById('nomePessoa').value=p?.nome||'';
+    document.getElementById('valorPessoa').value=p?.total??'';
+    document.getElementById('descricaoPessoa').value=p?.descricao||'';
+
+    document.getElementById('parcelasPessoa').value=
+        p?p.parcelas.map(x=>x.mes+','+x.valor+','+x.pago).join('\n'):'';
+
+    document.getElementById('modalPessoa').style.display='flex';
+}
+
+function fecharPessoa(){
+    document.getElementById('modalPessoa').style.display='none';
+}
+
+function salvarPessoa(){
+
+    const nome=document.getElementById('nomePessoa').value.trim();
+    const total=Number(document.getElementById('valorPessoa').value);
+    const descricao=document.getElementById('descricaoPessoa').value;
+
+    let parcelas=[];
+
+    try{
+
+        parcelas=document.getElementById('parcelasPessoa').value
+        .split('\n')
+        .filter(x=>x.trim())
+        .map(l=>{
+
+            const a=l.split(',');
+
+            const valor=Number(a[1]?.trim().replace(',','.'));
+            const pago=Number((a[2]||0).toString().trim().replace(',','.'));
+
+            if(a.length<2 || !a[0].trim() || !(valor>0) || pago<0 || pago>valor){
+                throw Error('Confira o formato mês,valor,pago.');
+            }
+
+            return {
+                id:crypto.randomUUID(),
+                mes:a[0].trim(),
+                valor,
+                pago
+            };
+        });
+
+        if(!nome || total<=0)throw Error('Informe nome e valor.');
+
+        if(parcelas.reduce((s,x)=>s+x.valor,0)>total+0.01){
+            throw Error('A soma das parcelas supera o valor total.');
+        }
+
+        if(parcelas.reduce((s,x)=>s+x.pago,0)>total+0.01){
+            throw Error('A soma dos pagamentos supera o valor total.');
+        }
+
+        const p=dados.pessoas.find(x=>x.id===pessoaEditando);
+
+        if(p){
+            p.nome=nome;
+            p.total=total;
+            p.descricao=descricao;
+            p.parcelas=parcelas;
+        }else{
+            dados.pessoas.push({
+                id:crypto.randomUUID(),
+                nome,total,descricao,parcelas
+            });
+        }
+
+        salvar();
+        fecharPessoa();
+
+    }catch(e){
+        alert(e.message);
+    }
+}
+
+function editarPessoa(id){
+    abrirPessoa(dados.pessoas.find(x=>x.id===id));
+}
+
+function excluirPessoa(id){
+
+    if(!confirm('Deseja realmente excluir esta pessoa?'))return;
+
+    dados.pessoas=dados.pessoas.filter(x=>x.id!==id);
+    salvar();
+}
+
+// ======================================
+// BIDU
+// ======================================
+
+function abrirBidu(b=null){
+
+    biduEditando=b?b.id:null;
+
+    document.getElementById('tituloBidu').textContent=
+        b?'Editar valor':'Adicionar valor';
+
+    document.getElementById('mesBidu').value=b?.mes||'';
+    document.getElementById('valorBidu').value=b?.total??'';
+    document.getElementById('descricaoBidu').value=b?.descricao||'';
+
+    document.getElementById('modalBidu').style.display='flex';
+}
+
+function fecharBidu(){
+    document.getElementById('modalBidu').style.display='none';
+}
+
+function salvarBidu(){
+
+    const mes=document.getElementById('mesBidu').value.trim();
+    const total=Number(document.getElementById('valorBidu').value);
+    const descricao=document.getElementById('descricaoBidu').value;
+
+    if(!mes || total<=0){
+        alert('Informe mês e valor.');
+        return;
+    }
+
+    const b=dados.bidu.find(x=>x.id===biduEditando);
+
+    if(b){
+        b.mes=mes;
+        b.total=total;
+        b.descricao=descricao;
+    }else{
+        dados.bidu.push({
+            id:crypto.randomUUID(),
+            mes,total,descricao,pago:0,partes:[]
+        });
+    }
+
+    salvar();
+    fecharBidu();
+}
+
+function editarBidu(id){
+    abrirBidu(dados.bidu.find(x=>x.id===id));
+}
+
+// ======================================
+// IMPORTAÇÃO DE EXCEL E CSV
+// ======================================
+
+function importarPlanilha(event){
+
+    const arquivo=event.target.files[0];
+
+    if(!arquivo)return;
+
+    const leitor=new FileReader();
+
+    leitor.onload=function(e){
+
+        try{
+
+            if(typeof XLSX==='undefined'){
+                throw Error('Biblioteca Excel não carregada. Verifique sua conexão com a internet.');
+            }
+
+            const workbook=XLSX.read(e.target.result,{
+                type:'array',
+                cellDates:false
+            });
+
+            const novaBase={
+                pessoas:[],
+                bidu:[],
+                historico:[]
+            };
+
+            const aba=(nome)=>{
+                const sheet=workbook.Sheets[nome];
+                return sheet ? XLSX.utils.sheet_to_json(sheet,{defval:''}) : [];
+            };
+
+            const pessoasImportadas=aba('Pessoas');
+            const parcelasImportadas=aba('Parcelas');
+            const biduImportado=aba('Bidu');
+            const partesImportadas=aba('Partes');
+            const historicoImportado=aba('Historico');
+
+            pessoasImportadas.forEach(p=>{
+
+                novaBase.pessoas.push({
+                    id:String(p.id || crypto.randomUUID()),
+                    nome:String(p.nome || ''),
+                    total:Number(p.total || 0),
+                    descricao:String(p.descricao || ''),
+                    parcelas:[]
+                });
+
+            });
+
+            parcelasImportadas.forEach(x=>{
+
+                const pessoa=novaBase.pessoas.find(
+                    p=>p.id===String(x.pessoaId)
+                );
+
+                if(pessoa){
+
+                    pessoa.parcelas.push({
+                        id:String(x.id || crypto.randomUUID()),
+                        mes:String(x.mes || ''),
+                        valor:Number(x.valor || 0),
+                        pago:Number(x.pago || 0)
+                    });
+
+                }
+
+            });
+
+            biduImportado.forEach(b=>{
+
+                novaBase.bidu.push({
+                    id:String(b.id || crypto.randomUUID()),
+                    mes:String(b.mes || ''),
+                    total:Number(b.total || 0),
+                    pago:Number(b.pago || 0),
+                    descricao:String(b.descricao || ''),
+                    partes:[]
+                });
+
+            });
+
+            partesImportadas.forEach(x=>{
+
+                const bidu=novaBase.bidu.find(
+                    b=>b.id===String(x.biduId)
+                );
+
+                if(bidu){
+                    bidu.partes.push({
+                        nome:String(x.nome || ''),
+                        valor:Number(x.valor || 0)
+                    });
+                }
+
+            });
+
+            novaBase.historico=historicoImportado.map(h=>({
+                nome:String(h.nome || ''),
+                valor:Number(h.valor || 0),
+                descricao:String(h.descricao || ''),
+                data:String(h.data || '')
+            }));
+
+            if(!novaBase.pessoas.length && !novaBase.bidu.length){
+                throw Error('Não encontrei as abas Pessoas ou Bidu. Use uma planilha exportada por este sistema.');
+            }
+
+            for(const p of novaBase.pessoas){
+
+                if(!p.nome || p.total<0){
+                    throw Error('Existe uma pessoa com dados inválidos.');
+                }
+
+                for(const x of p.parcelas){
+                    if(x.valor<0 || x.pago<0 || x.pago>x.valor){
+                        throw Error('Existe uma parcela com valores inválidos.');
+                    }
+                }
+            }
+
+            dados=novaBase;
+
+            salvar();
+
+            document.getElementById('statusImportacao').textContent=
+                'Importação concluída: '+dados.pessoas.length+' pessoas e '+dados.bidu.length+' registros do Bidu.';
+
+            alert('Planilha importada com sucesso!');
+
+        }catch(erro){
+
+            alert('Erro ao importar: '+erro.message);
+
+        }
+
+        event.target.value='';
+
+    };
+
+    leitor.onerror=function(){
+        alert('Não foi possível ler o arquivo.');
+    };
+
+    leitor.readAsArrayBuffer(arquivo);
+}
+
+// ======================================
+// EXPORTAR EXCEL ATUALIZADO
+// ======================================
+
+function salvarPlanilha(){
+
+    if(typeof XLSX==='undefined'){
+        alert('A biblioteca Excel não carregou. Verifique sua conexão com a internet.');
+        return;
+    }
+
+    const wb=XLSX.utils.book_new();
+
+    // PESSOAS
+
+    const pessoas=dados.pessoas.map(p=>({
+        id:p.id,
+        nome:p.nome,
+        total:p.total,
+        descricao:p.descricao
+    }));
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(pessoas),
+        'Pessoas'
+    );
+
+    // PARCELAS
+
+    const parcelas=[];
+
+    dados.pessoas.forEach(p=>{
+
+        p.parcelas.forEach(x=>{
+
+            parcelas.push({
+                id:x.id,
+                pessoaId:p.id,
+                nome:p.nome,
+                mes:x.mes,
+                valor:x.valor,
+                pago:x.pago
+            });
+
+        });
+
+    });
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(parcelas),
+        'Parcelas'
+    );
+
+    // BIDU
+
+    const bidu=dados.bidu.map(b=>({
+        id:b.id,
+        mes:b.mes,
+        total:b.total,
+        pago:b.pago,
+        descricao:b.descricao
+    }));
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(bidu),
+        'Bidu'
+    );
+
+    // PARTES DO BIDU
+
+    const partes=[];
+
+    dados.bidu.forEach(b=>{
+
+        (b.partes||[]).forEach(x=>{
+
+            partes.push({
+                biduId:b.id,
+                nome:x.nome,
+                valor:x.valor
+            });
+
+        });
+
+    });
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(partes),
+        'Partes'
+    );
+
+    // HISTÓRICO
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet(dados.historico||[]),
+        'Historico'
+    );
+
+    XLSX.writeFile(
+        wb,
+        'Controle_Financeiro_Atualizado.xlsx'
+    );
+
+    document.getElementById('statusImportacao').textContent=
+        'Planilha atualizada exportada com sucesso!';
+
+}
+
+// ======================================
+// BACKUP JSON
+// ======================================
+
+function exportarBackup(){
+
+    const blob=new Blob(
+        [JSON.stringify(dados,null,2)],
+        {type:'application/json'}
+    );
+
+    const url=URL.createObjectURL(blob);
+
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='Controle_Financeiro_Backup.json';
+    a.click();
+
+    URL.revokeObjectURL(url);
+}
+
+// ======================================
+// NAVEGAÇÃO
+// ======================================
+
+document.querySelectorAll('.tab').forEach(botao=>{
+
+    botao.onclick=()=>{
+
+        document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+
+        document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+
+        botao.classList.add('active');
+
+        document.getElementById(botao.dataset.tab).classList.add('active');
+
+    };
+
+});
+
+// ======================================
+// INICIAR
+// ======================================
+
+atualizar();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Análise do chão de fábrica</title>
+<style>
+:root{--bg:#eef1f5;--card:#fff;--ink:#14202e;--mut:#5d6b7b;--line:#d6dde6;--ac:#3446b4;--bad:#d4452f;--warn:#d68a12;--ok:#1f8a5b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Segoe UI",Roboto,Arial,sans-serif}
+header{background:var(--ink);color:#fff;padding:16px 24px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:1.3rem;letter-spacing:-.01em}
+#sub{margin:2px 0 0;color:#b8c4d2;font-size:.85rem}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.st{font-size:.82rem;color:#d3dce6;margin-right:6px}
+#dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#7b8794;margin-right:6px}
+#dot.ok{background:#45d69a}#dot.err{background:var(--bad)}
+button,input,select{font:inherit;font-size:.85rem;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+header button{background:transparent;color:#fff;border-color:#4b5b6e}header button:hover{border-color:#fff}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+details{color:#d3dce6;font-size:.82rem}details summary{cursor:pointer}
+details div{display:flex;gap:8px;margin-top:6px}details input{width:190px}
+main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
+.sec{margin-top:30px}
+.sec h2{margin:0;font-size:1.2rem}
+.lead{margin:2px 0 12px;color:var(--mut);font-size:.9rem;max-width:80ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+canvas{width:100%;height:260px;display:block}
+.read{margin:8px 0 0;font-size:.9rem;padding:8px 12px;background:#f2f5fb;border-left:3px solid var(--ac);border-radius:0 6px 6px 0}
+.fi{display:grid;gap:10px}
+.f{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--ok);border-radius:8px;padding:12px 16px}
+.f.s1{border-left-color:#8fa3bd}.f.s2{border-left-color:var(--warn)}.f.s3{border-left-color:var(--bad)}
+.f b{display:block}.f span{color:var(--mut);font-size:.9rem}.f em{display:block;margin-top:4px;font-style:normal;font-size:.88rem;color:var(--ac)}
+table{border-collapse:collapse;width:100%;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:#e7ecf3;font-weight:600}
+.sc{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px}
+.bar{display:inline-block;height:9px;border-radius:5px;vertical-align:middle;margin-right:8px}
+.tag{padding:2px 9px;border-radius:99px;font-size:.76rem;font-weight:700;color:#fff}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.row label{display:flex;flex-direction:column;font-size:.78rem;color:var(--mut);gap:3px}
+.empty{margin-top:40px;padding:50px 20px;text-align:center;background:var(--card);border:1px dashed var(--line);border-radius:8px;color:var(--mut)}
+ul.m{margin:6px 0 0;padding-left:20px;color:#33414f;font-size:.9rem}
+@media(max-width:800px){.two{grid-template-columns:1fr}}
+@media print{header .ctl,details{display:none}body{background:#fff}.sec{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Análise do chão de fábrica</h1><p id="sub">Aguardando dados…</p></div>
+  <div class="ctl">
+    <span class="st"><i id="dot"></i><span id="st">desconectado</span></span>
+    <button id="go">Pausar coleta</button>
+    <button id="demo">Dados de demonstração</button>
+    <button id="exp">Exportar CSV</button>
+    <button id="fsave">Salvar em arquivo</button>
+    <button id="clr">Limpar</button>
+    <button onclick="print()">Gerar PDF</button>
+    <details><summary>Fonte dos dados</summary><div><input id="base" value="http://10.107.67.92:8080" aria-label="URL base"><input id="ep" value="/maquinas" style="width:100px" aria-label="Endpoint"><input id="iv" type="number" min="1" value="5" style="width:60px" aria-label="Intervalo em segundos"></div></details>
+  </div>
+</header>
+<main id="app"></main>
+
+<script>
+/* ============ ANÁLISE (funções puras) ============ */
+let rows=[],seen=new Set();
+const NOOP=/oper|ativ|rodan|run|normal|^ok|ligad|produz/i;
+const isOff=r=>r.status!=null&&r.status!==''&&!NOOP.test(r.status);
+const mean=a=>a.reduce((p,c)=>p+c,0)/(a.length||1);
+const med=a=>{if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y),n=s.length;return n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2};
+const sd=a=>{const m=mean(a);return Math.sqrt(a.reduce((p,c)=>p+(c-m)**2,0)/Math.max(1,a.length-1))};
+const fmt=(x,d=1)=>x==null||!isFinite(x)?'–':(+x).toFixed(d);
+const fd=ms=>!isFinite(ms)?'–':ms<6e4?fmt(ms/1e3,0)+' s':ms<3.6e6?fmt(ms/6e4)+' min':fmt(ms/3.6e6)+' h';
+const tf=t=>new Date(t).toLocaleTimeString('pt-BR');
+function pearson(x,y){const n=x.length;if(n<3)return NaN;const mx=mean(x),my=mean(y);let a=0,b=0,c=0;for(let i=0;i<n;i++){a+=(x[i]-mx)*(y[i]-my);b+=(x[i]-mx)**2;c+=(y[i]-my)**2}return b&&c?a/Math.sqrt(b*c):NaN}
+function lin(x,y){const mx=mean(x),my=mean(y);let a=0,b=0;for(let i=0;i<x.length;i++){a+=(x[i]-mx)*(y[i]-my);b+=(x[i]-mx)**2}const s=b?a/b:0;return{b:s,a:my-s*mx}}
+const numKeys=a=>{const s=new Set();a.slice(-300).forEach(r=>{for(const k in r)if(k!=='id'&&k!=='_t'&&typeof r[k]==='number'&&isFinite(r[k]))s.add(k)});return[...s]};
+const ACT={temp:'Inspecionar refrigeração, lubrificação e carga de trabalho.',vibra:'Verificar balanceamento, fixação e rolamentos.',press:'Checar vazamentos, válvulas e vedações.',prod:'Revisar gargalos e abastecimento da linha.'};
+const act=k=>{const e=Object.entries(ACT).find(([p])=>k.toLowerCase().includes(p));return e?e[1]:'Inspecionar o equipamento e comparar com a especificação.'};
+
+function ingest(arr,quiet){
+  let n=0;
+  for(const r of arr){
+    if(!r||typeof r!=='object')continue;
+    const k=(r.id??'')+'|'+(r.timestamp??'')+'|'+(r.maquina??'');
+    if(seen.has(k))continue;seen.add(k);
+    r._t=Date.parse(r.timestamp)||Date.now();if(!r.maquina)r.maquina='(sem id)';
+    rows.push(r);n++;
+  }
+  if(rows.length>20000)rows=rows.slice(-20000);
+  if(n){try{localStorage.setItem('esp_rows',JSON.stringify(rows.slice(-12000)))}catch(e){}
+    if(typeof writeFile==='function')writeFile();if(!quiet&&typeof sched==='function')sched()}
+  return n;
+}
+try{ingest(JSON.parse(localStorage.getItem('esp_rows')||'[]'),true)}catch(e){}
+
+function analyze(){
+  const ms=[...new Set(rows.map(r=>r.maquina))].sort(),dts=[];
+  const M=ms.map(m=>{
+    const a=rows.filter(r=>r.maquina===m).sort((x,y)=>x._t-y._t),d=[];
+    for(let i=1;i<a.length;i++)if(a[i]._t>a[i-1]._t)d.push(a[i]._t-a[i-1]._t);
+    const dt=Math.max(500,med(d)||5000);dts.push(dt);
+    const ks=numKeys(a),off=a.map(isOff),nOff=off.filter(Boolean).length,ev=[];
+    for(let i=0;i<a.length;i++)if(off[i]&&(i===0||!off[i-1])){let j=i;while(j+1<a.length&&off[j+1])j++;ev.push({i,j,t:a[i]._t,dur:a[j]._t-a[i]._t+dt,st:a[i].status})}
+    const disp=1-nOff/a.length,V={};let anTot=0,cnt=0;
+    ks.forEach(k=>{
+      const pts=a.map(r=>({x:r._t,y:r[k]})).filter(p=>typeof p.y==='number'),ys=pts.map(p=>p.y);
+      const md=med(ys),mad=med(ys.map(y=>Math.abs(y-md))),s=mad?mad/.6745:(sd(ys)||1);
+      const an=pts.filter(p=>Math.abs((p.y-md)/s)>3.5),reg=lin(pts.map(p=>p.x),ys);
+      const span=pts.length>1?pts[pts.length-1].x-pts[0].x:0,mu=mean(ys),w=Math.max(3,Math.floor(ys.length*.1));
+      V[k]={pts,md,s,mu,an,reg,trend:mu?reg.b*span/Math.abs(mu)*100:0,drift:(mean(ys.slice(-w))-md)/s};
+      anTot+=an.length;cnt+=ys.length;
+    });
+    const pre={};
+    if(ev.length)ks.forEach(k=>{
+      const base=mean(a.filter((r,i)=>!off[i]&&typeof r[k]==='number').map(r=>r[k])),ds=[],zs=[];
+      ev.forEach(e=>{const w=[];for(let i=Math.max(0,e.i-5);i<e.i;i++)if(!off[i]&&typeof a[i][k]==='number')w.push(a[i][k]);
+        if(w.length>=3){const mw=mean(w);ds.push(base?(mw-base)/Math.abs(base)*100:0);zs.push((mw-V[k].md)/V[k].s)}});
+      if(ds.length)pre[k]={d:mean(ds),z:mean(zs),n:ds.length};
+    });
+    const anRate=cnt?anTot/cnt:0,maxDrift=Math.max(0,...ks.map(k=>Math.abs(V[k].drift)));
+    const tp=ks.some(k=>/temp|vibra/i.test(k)&&V[k].trend>15)?10:0;
+    const score=Math.max(0,Math.round(100-Math.min(40,(1-disp)*150)-Math.min(30,anRate*300)-Math.min(20,maxDrift*5)-tp));
+    const why=[];
+    if(disp<.97)why.push('disponibilidade de '+fmt(disp*100)+'%');
+    if(anRate>.01)why.push(fmt(anRate*100)+'% das leituras anômalas');
+    const dk=[...ks].sort((p,q)=>Math.abs(V[q].drift)-Math.abs(V[p].drift))[0];
+    if(dk&&Math.abs(V[dk].drift)>2)why.push(dk+' recente '+fmt(Math.abs(V[dk].drift))+'σ '+(V[dk].drift>0?'acima':'abaixo')+' do normal');
+    if(tp)why.push('temperatura/vibração em tendência de alta');
+    const po=a.filter((r,i)=>!off[i]&&typeof r.producao==='number').map(r=>r.producao);
+    return{m,a,ks,dt,off,nOff,ev,disp,mttr:ev.length?mean(ev.map(e=>e.dur)):NaN,mtbf:ev.length?(a.length-nOff)*dt/ev.length:NaN,V,pre,anRate,score,why,prodOp:po.length?mean(po):NaN,risk:score>=80?0:score>=55?1:2};
+  });
+  const t0=Math.min(...rows.map(r=>r._t)),t1=Math.max(...rows.map(r=>r._t));
+  const bw=Math.max(2*(med(dts)||5000),(t1-t0)/300),nb=Math.floor((t1-t0)/bw)+1;
+  const S=M.filter(x=>x.V.producao).map(x=>{const arr=Array(nb).fill(NaN),c=Array(nb).fill(0);
+    x.a.forEach(r=>{if(typeof r.producao==='number'){const i=Math.floor((r._t-t0)/bw);arr[i]=c[i]?(arr[i]*c[i]+r.producao)/(c[i]+1):r.producao;c[i]++}});return{m:x.m,arr}});
+  const fp=[],fo=[],mx=S.length;
+  for(let i=0;i<nb;i++){const v=S.map(s=>s.arr[i]).filter(isFinite);
+    if(mx&&v.length>=Math.max(1,.8*mx))fp.push({x:t0+i*bw,y:v.reduce((p,c)=>p+c,0)});
+    let o=0,n=0;M.forEach(x=>x.a.forEach((r,j)=>{if(Math.floor((r._t-t0)/bw)===i){n++;if(!x.off[j])o++}}));if(n)fo.push({x:t0+i*bw,y:o/n*100})}
+  const chain=[];
+  for(let p=0;p<S.length;p++)for(let q=p+1;q<S.length;q++){let best=null;
+    for(let l=-2;l<=2;l++){const X=[],Y=[];for(let i=0;i<nb;i++){const j=i+l;if(j>=0&&j<nb&&isFinite(S[p].arr[i])&&isFinite(S[q].arr[j])){X.push(S[p].arr[i]);Y.push(S[q].arr[j])}}
+      if(X.length>=8){const r=pearson(X,Y);if(isFinite(r)&&(!best||Math.abs(r)>Math.abs(best.r)))best={a:S[p].m,b:S[q].m,l,r,n:X.length}}}
+    if(best&&Math.abs(best.r)>=.5)chain.push(best)}
+  chain.sort((x,y)=>Math.abs(y.r)-Math.abs(x.r));
+  // conclusões
+  const F=[],cap=s=>s;
+  const w=[...M].sort((x,y)=>x.score-y.score)[0];
+  if(w&&w.score<85)F.push({s:w.score<55?3:2,t:w.m+' é a máquina mais crítica (saúde '+w.score+'/100)',x:(w.why.join('; ')||'pequenos desvios acumulados')+'.',a:'Priorizar a inspeção desta máquina.'});
+  M.forEach(x=>{
+    if(x.ev.length)F.push({s:x.disp<.9?3:2,t:x.m+': '+x.ev.length+' parada(s)/falha(s) registradas',x:'Disponibilidade de '+fmt(x.disp*100)+'%, tempo médio de reparo '+fd(x.mttr)+' e intervalo médio entre falhas '+fd(x.mtbf)+'.',a:'Investigar as causas recorrentes e revisar o plano de manutenção.'});
+    Object.entries(x.pre).forEach(([k,p])=>{if(k!=='producao'&&(Math.abs(p.d)>=8||Math.abs(p.z)>=1.5))F.push({s:3,t:k+' é um sinal antecedente de falha em '+x.m,x:'Nas leituras anteriores às paradas, '+k+' ficou '+(p.d>0?'+':'')+fmt(p.d)+'% em relação ao normal ('+fmt(p.z)+'σ), em '+p.n+' ocorrência(s).',a:'Criar alerta para '+k+' nesta máquina. '+act(k)})});
+    x.ks.forEach(k=>{const v=x.V[k];
+      if(Math.abs(v.trend)>=15&&k!=='producao')F.push({s:1,t:x.m+': '+k+' com tendência de '+(v.trend>0?'alta':'queda')+' de '+fmt(Math.abs(v.trend),0)+'%',x:'Variação ao longo do período analisado (regressão linear).',a:act(k)});
+      if(v.an.length&&v.an.length/v.pts.length>.02)F.push({s:2,t:x.m+': '+v.an.length+' anomalias em '+k,x:fmt(v.an.length/v.pts.length*100)+'% das leituras fogem do padrão (desvio robusto acima de 3,5).',a:act(k)})});
+  });
+  chain.slice(0,2).forEach(c=>F.push({s:1,t:'Possível efeito em cadeia entre '+c.a+' e '+c.b,x:'A produção das duas se move junta (r='+fmt(c.r,2)+(c.l?', defasagem de '+Math.abs(c.l)+' intervalo(s)':'')+'). Correlação não prova causa.',a:'Avaliar se uma parada em uma das máquinas afeta o fluxo da outra.'}));
+  if(!F.length)F.push({s:0,t:'Nenhum desvio relevante até agora',x:'Todas as máquinas estão dentro do padrão observado.',a:'Continue coletando para refinar a análise.'});
+  F.sort((x,y)=>y.s-x.s);
+  return{M,F,t0,t1,fp,fo,chain};
+}
+
+/* demonstração: fábrica simulada com degradação antes de falhas e efeito em cadeia */
+const MS=['TORNO_CNC_01','PRENSA_HIDRAULICA_01','ESTEIRA_01','ROBO_SOLDAGEM_01','COMPRESSOR_01','EMBALADORA_01'];
+let G={st:MS.map(()=>({f:0,p:0})),prev:MS.map(()=>false),id:1};
+const rn=()=>Math.random()+Math.random()+Math.random()-1.5;
+function genStep(t){
+  const out=[],cur=[];
+  MS.forEach((m,i)=>{
+    const s=G.st[i];let ramp=0,fail=false;
+    if(s.f>0){fail=true;s.f--}
+    else if(s.p>0){ramp=(9-s.p)/8;s.p--;if(s.p===0)s.f=4+Math.floor(Math.random()*4)}
+    else if(Math.random()<.012)s.p=8;
+    cur.push(fail);
+    let prod=110+i*8+rn()*6;if(fail)prod=0;else if((i===2||i===5)&&G.prev[1])prod*=.45;
+    const r={id:G.id++,timestamp:new Date(t).toISOString(),maquina:m,temperatura:+(55+i*3+rn()*1.5+ramp*14+(fail?25:0)).toFixed(1),vibracao:+(2+i*.15+rn()*.25+ramp*2.5+(fail?4:0)).toFixed(2),producao:Math.round(prod),status:fail?'falha':'operando'};
+    if(i===1||i===4)r.pressao=+(120+rn()*3-ramp*10).toFixed(1);
+    out.push(r);
+  });
+  G.prev=cur;return out;
+}
+//==UI==
+const $=s=>document.querySelector(s);
+let timer=null,demoT=null,rt=0,D=[],sel={m:'',v:''},fh=null,busy=false;
+function setSt(t,k){$('#st').textContent=t;$('#dot').className=k||''}
+const sched=()=>{if(!rt)rt=setTimeout(()=>{rt=0;render()},1200)};
+async function pull(){
+  const u=$('#base').value.replace(/\/$/,'')+$('#ep').value;
+  try{const r=await fetch(u,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();setSt('coletando · +'+ingest(Array.isArray(j)?j:[j])+' novas','ok')}
+  catch(e){setSt('falha: '+e.message+(location.protocol==='file:'?' (abra por http://localhost:8000 com servidor.py)':''),'err')}
+}
+function startPull(){stopDemo();if(timer)clearInterval(timer);pull();timer=setInterval(pull,Math.max(1,+$('#iv').value)*1000);$('#go').textContent='Pausar coleta'}
+$('#go').onclick=()=>{if(timer){clearInterval(timer);timer=null;$('#go').textContent='Retomar coleta';setSt('coleta pausada')}else startPull()};
+function stopDemo(){if(demoT){clearInterval(demoT);demoT=null;$('#demo').textContent='Dados de demonstração'}}
+$('#demo').onclick=()=>{
+  if(demoT){stopDemo();setSt('demonstração parada');return}
+  if(timer){clearInterval(timer);timer=null;$('#go').textContent='Retomar coleta'}
+  rows=[];seen=new Set();G.id=1;const now=Date.now();
+  for(let i=360;i>0;i--)ingest(genStep(now-i*5000),true);
+  render();demoT=setInterval(()=>{ingest(genStep(Date.now()));setSt('demonstração (dados simulados)','ok')},3000);
+  $('#demo').textContent='Parar demonstração';setSt('demonstração (dados simulados)','ok');
+};
+function csvText(){const s=new Set();rows.forEach(r=>Object.keys(r).forEach(k=>k!=='_t'&&s.add(k)));const ks=[...s];return[ks.join(';')].concat(rows.map(r=>ks.map(k=>r[k]??'').join(';'))).join('\n')}
+$('#exp').onclick=()=>{if(!rows.length)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csvText()],{type:'text/csv'}));a.download='leituras.csv';a.click()};
+async function writeFile(){if(!fh||busy)return;busy=true;try{const w=await fh.createWritable();await w.write(csvText());await w.close()}catch(e){}busy=false}
+$('#fsave').onclick=async()=>{try{fh=await showSaveFilePicker({suggestedName:'leituras.csv',types:[{accept:{'text/csv':['.csv']}}]});await writeFile();$('#fsave').textContent='Salvando em '+fh.name}catch(e){setSt('salvamento em arquivo indisponível (use Chrome/Edge)','err')}};
+$('#clr').onclick=()=>{if(confirm('Apagar todas as leituras?')){rows=[];seen=new Set();localStorage.removeItem('esp_rows');render()}};
+
+/* ---- gráficos ---- */
+const ds=(p,n=700)=>p.length>n?p.filter((_,i)=>i%Math.ceil(p.length/n)===0):p;
+function chart(c,S,o={}){
+  const d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*d;c.height=h*d;const g=c.getContext('2d');g.scale(d,d);g.font='11px Segoe UI,Arial';
+  const all=S.flatMap(s=>s.pts);if(all.length<2){g.fillStyle='#5d6b7b';g.fillText('dados insuficientes',10,20);return}
+  const xs=all.map(p=>p.x),ys=all.map(p=>p.y);let x0=Math.min(...xs),x1=Math.max(...xs),y0=o.y0??Math.min(...ys),y1=o.y1??Math.max(...ys);
+  const pd=(y1-y0)*.08||1;if(o.y0==null)y0-=pd;if(o.y1==null)y1+=pd;
+  const P={l:50,r:10,t:22,b:24},X=v=>P.l+(v-x0)/((x1-x0)||1)*(w-P.l-P.r),Y=v=>h-P.b-(v-y0)/((y1-y0)||1)*(h-P.t-P.b);
+  g.strokeStyle='#e2e7ee';g.fillStyle='#5d6b7b';
+  for(let i=0;i<=4;i++){const y=P.t+(h-P.t-P.b)*i/4;g.beginPath();g.moveTo(P.l,y);g.lineTo(w-P.r,y);g.stroke();g.textAlign='right';g.fillText(fmt(y1-(y1-y0)*i/4,y1-y0<10?1:0),P.l-6,y+4)}
+  for(let i=0;i<=4;i++){g.textAlign='center';g.fillText(tf(x0+(x1-x0)*i/4),P.l+(w-P.l-P.r)*i/4,h-8)}
+  if(o.band){const a=Math.max(o.band[0],y0),b=Math.min(o.band[1],y1);if(b>a){g.fillStyle='rgba(52,70,180,.09)';g.fillRect(P.l,Y(b),w-P.l-P.r,Y(a)-Y(b))}}
+  if(o.mid!=null&&o.mid>y0&&o.mid<y1){g.setLineDash([4,4]);g.strokeStyle='#d68a12';g.beginPath();g.moveTo(P.l,Y(o.mid));g.lineTo(w-P.r,Y(o.mid));g.stroke();g.setLineDash([])}
+  if(o.ticks)o.ticks.forEach(t=>{g.fillStyle='rgba(212,69,47,.35)';g.fillRect(X(t)-1,P.t,3,h-P.t-P.b)});
+  let lx=P.l;
+  S.forEach(s=>{g.strokeStyle=s.color;g.lineWidth=s.w||1.4;g.setLineDash(s.dash?[6,4]:[]);g.beginPath();ds(s.pts).forEach((p,i)=>i?g.lineTo(X(p.x),Y(p.y)):g.moveTo(X(p.x),Y(p.y)));g.stroke();g.setLineDash([]);
+    if(s.name){g.fillStyle=s.color;g.fillRect(lx,8,14,3);g.fillStyle='#33414f';g.textAlign='left';g.fillText(s.name,lx+18,12);lx+=g.measureText(s.name).width+34}});
+  if(o.marks){g.fillStyle='#d4452f';o.marks.forEach(p=>{if(p.y>=y0&&p.y<=y1){g.beginPath();g.arc(X(p.x),Y(p.y),3.5,0,7);g.fill()}})}
+}
+function scat(c,pts,reg,xl,yl){
+  const d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*d;c.height=h*d;const g=c.getContext('2d');g.scale(d,d);g.font='11px Segoe UI,Arial';
+  if(pts.length<3)return;const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys),P={l:50,r:10,t:10,b:30};
+  const X=v=>P.l+(v-x0)/((x1-x0)||1)*(w-P.l-P.r),Y=v=>h-P.b-(v-y0)/((y1-y0)||1)*(h-P.t-P.b);
+  g.fillStyle='#5d6b7b';g.textAlign='center';g.fillText(xl,w/2,h-6);g.save();g.translate(12,h/2);g.rotate(-Math.PI/2);g.fillText(yl,0,0);g.restore();
+  g.textAlign='right';g.fillText(fmt(y1),P.l-5,P.t+8);g.fillText(fmt(y0),P.l-5,h-P.b);g.textAlign='left';g.fillText(fmt(x0),P.l,h-P.b+12);g.textAlign='right';g.fillText(fmt(x1),w-P.r,h-P.b+12);
+  g.fillStyle='rgba(52,70,180,.4)';ds(pts,900).forEach(p=>{g.beginPath();g.arc(X(p.x),Y(p.y),3,0,7);g.fill()});
+  g.strokeStyle='#d4452f';g.lineWidth=2;g.beginPath();g.moveTo(X(x0),Y(reg.a+reg.b*x0));g.lineTo(X(x1),Y(reg.a+reg.b*x1));g.stroke();
+}
+
+/* ---- página ---- */
+const RC=['#1f8a5b','#d68a12','#d4452f'],RN=['Baixo','Médio','Alto'];
+const sec=(t,l,b)=>`<section class="sec"><h2>${t}</h2><p class="lead">${l}</p>${b}</section>`;
+function render(){
+  const app=$('#app');$('#sub').textContent=rows.length?rows.length+' leituras · '+new Set(rows.map(r=>r.maquina)).size+' máquinas':'Aguardando dados…';
+  if(!rows.length){app.innerHTML='<div class="empty"><b>Ainda sem dados.</b><br>A coleta começa sozinha. Se a API não responder, use <b>Dados de demonstração</b> para ver a análise completa.</div>';return}
+  const A=analyze(),{M}=A;D=[];
+  if(!M.some(x=>x.m===sel.m))sel.m=M[0].m;
+  const cur=M.find(x=>x.m===sel.m),ks=cur.ks;if(!ks.includes(sel.v))sel.v=ks.includes('temperatura')?'temperatura':ks[0];
+  $('#sub').textContent+=' · '+tf(A.t0)+' a '+tf(A.t1);
+  let h='';
+  // 1 conclusões
+  h+=sec('Conclusões','Achados ordenados por gravidade, gerados automaticamente a partir dos dados coletados.',
+    '<div class="fi">'+A.F.slice(0,8).map(f=>`<div class="f s${f.s}"><b>${f.t}</b><span>${f.x}</span><em>Ação sugerida: ${f.a}</em></div>`).join('')+'</div>');
+  // 2 saúde
+  h+=sec('Saúde das máquinas','Índice de 0 a 100 que desconta indisponibilidade, leituras anômalas e desvio recente. MTBF = tempo médio entre falhas; MTTR = tempo médio de reparo.',
+    '<div class="sc"><table><tr><th>Máquina</th><th>Saúde</th><th>Risco</th><th>Disponibilidade</th><th>Paradas</th><th>MTBF</th><th>MTTR</th><th>Anomalias</th><th>Produção média</th></tr>'+
+    [...M].sort((a,b)=>a.score-b.score).map(x=>`<tr><td><b>${x.m}</b></td><td><span class="bar" style="width:${x.score*.8}px;background:${RC[x.risk]}"></span>${x.score}</td><td><span class="tag" style="background:${RC[x.risk]}">${RN[x.risk]}</span></td><td>${fmt(x.disp*100)}%</td><td>${x.ev.length}</td><td>${fd(x.mtbf)}</td><td>${fd(x.mttr)}</td><td>${fmt(x.anRate*100)}%</td><td>${fmt(x.prodOp,0)}</td></tr>`).join('')+'</table></div>');
+  // 3 fábrica
+  const pm=A.fp.length?mean(A.fp.map(p=>p.y)):NaN,pmin=A.fp.length?A.fp.reduce((p,c)=>c.y<p.y?c:p):null,full=A.fo.length?A.fo.filter(p=>p.y>=99.9).length/A.fo.length*100:NaN;
+  h+=sec('Visão da fábrica','Produção somada de todas as máquinas e percentual delas que está operando em cada intervalo.',
+    '<div class="two"><div class="card"><canvas id="cf1"></canvas></div><div class="card"><canvas id="cf2"></canvas></div></div>'+
+    `<p class="read">Produção total média de ${fmt(pm,0)} por intervalo${pmin?', com o pior momento às '+tf(pmin.x)+' ('+fmt(pmin.y,0)+')':''}. A fábrica inteira operou em ${fmt(full)}% do tempo.</p>`);
+  D.push(()=>chart($('#cf1'),[{pts:A.fp,color:'#3446b4',name:'produção total'}],{y0:0}),()=>chart($('#cf2'),[{pts:A.fo,color:'#1f8a5b',name:'% operando'}],{y0:0,y1:100}));
+  // 4 investigação
+  const v=cur.V[sel.v],rm=v.pts.map((p,i)=>({x:p.x,y:mean(v.pts.slice(Math.max(0,i-9),i+1).map(q=>q.y))}));
+  const x0=v.pts[0].x,x1=v.pts[v.pts.length-1].x;
+  h+=sec('Investigação por máquina','Série com média móvel, tendência linear e faixa normal (mediana ± 3,5 desvios robustos). Pontos vermelhos são anomalias; faixas vermelhas são paradas.',
+    `<div class="row"><label>Máquina<select id="sm">${M.map(x=>`<option ${x.m===sel.m?'selected':''}>${x.m}</option>`).join('')}</select></label><label>Variável<select id="sv">${ks.map(k=>`<option ${k===sel.v?'selected':''}>${k}</option>`).join('')}</select></label></div><div class="card"><canvas id="cs" style="height:300px"></canvas></div>`+
+    `<p class="read"><b>${sel.v}</b> em ${sel.m}: mediana ${fmt(v.md,2)}, desvio robusto ${fmt(v.s,2)}, ${v.an.length} anomalia(s) (${fmt(v.an.length/v.pts.length*100)}%). Tendência de ${v.trend>=0?'+':''}${fmt(v.trend)}% no período; nas últimas leituras a variável está ${fmt(Math.abs(v.drift))}σ ${v.drift>=0?'acima':'abaixo'} da mediana.</p>`);
+  D.push(()=>chart($('#cs'),[{pts:v.pts,color:'#8fa3bd',w:1,name:sel.v},{pts:rm,color:'#3446b4',w:2,name:'média móvel'},{pts:[{x:x0,y:v.reg.a+v.reg.b*x0},{x:x1,y:v.reg.a+v.reg.b*x1}],color:'#1f8a5b',dash:1,w:1.6,name:'tendência'}],{band:[v.md-3.5*v.s,v.md+3.5*v.s],mid:v.md,marks:v.an,ticks:cur.a.filter((r,i)=>cur.off[i]).map(r=>r._t)}));
+  // 5 precursores
+  const pr=[];M.forEach(x=>Object.entries(x.pre).forEach(([k,p])=>pr.push({m:x.m,k,...p})));
+  h+=sec('O que acontece antes de uma parada','Compara as 5 leituras anteriores a cada parada com o comportamento normal da máquina. Variáveis que mudam muito antes da falha servem como alerta antecipado.',
+    pr.length?`<div class="sc"><table><tr><th>Máquina</th><th>Variável</th><th>Variação antes da parada</th><th>Em desvios</th><th>Paradas analisadas</th><th>Sinal</th></tr>${pr.sort((a,b)=>Math.abs(b.z)-Math.abs(a.z)).map(p=>`<tr><td>${p.m}</td><td>${p.k}</td><td>${p.d>0?'+':''}${fmt(p.d)}%</td><td>${fmt(p.z)}σ</td><td>${p.n}</td><td>${Math.abs(p.z)>=1.5||Math.abs(p.d)>=8?'<span class="tag" style="background:#d4452f">alerta antecipado</span>':'fraco'}</td></tr>`).join('')}</table></div>`
+    :'<p class="read">Nenhuma parada ou falha registrada ainda (a coluna <b>status</b> só trouxe valores de operação normal). Esta análise aparece assim que houver paradas.</p>');
+  // 6 relações
+  let best=null;for(let i=0;i<ks.length;i++)for(let j=i+1;j<ks.length;j++){const q=cur.a.filter(r=>typeof r[ks[i]]==='number'&&typeof r[ks[j]]==='number'),r=pearson(q.map(z=>z[ks[i]]),q.map(z=>z[ks[j]]));if(isFinite(r)&&(!best||Math.abs(r)>Math.abs(best.r)))best={a:ks[i],b:ks[j],r,q}}
+  const cell=r=>`<td style="background:hsl(${isNaN(r)?'0 0% 92%':(r>0?'160 55%':'8 65%')+' '+(100-Math.abs(r)*50)+'%'});text-align:center">${fmt(r,2)}</td>`;
+  h+=sec('Relações entre variáveis','Correlação de Pearson em '+sel.m+'. Valores próximos de 1 ou −1 indicam que as variáveis andam juntas (ou em sentidos opostos).',
+    `<div class="two"><div class="card" style="overflow:auto"><table><tr><th></th>${ks.map(k=>`<th>${k}</th>`).join('')}</tr>${ks.map(a=>`<tr><td><b>${a}</b></td>${ks.map(b=>{const q=cur.a.filter(r=>typeof r[a]==='number'&&typeof r[b]==='number');return cell(a===b?1:pearson(q.map(z=>z[a]),q.map(z=>z[b])))}).join('')}</tr>`).join('')}</table></div><div class="card"><canvas id="cr"></canvas></div></div>`+
+    (best?`<p class="read">Relação mais forte: <b>${best.a}</b> × <b>${best.b}</b> (r = ${fmt(best.r,2)}). Uma reta explica cerca de ${fmt(best.r**2*100,0)}% da variação de ${best.b}.</p>`:''));
+  if(best){const rg=lin(best.q.map(z=>z[best.a]),best.q.map(z=>z[best.b]));D.push(()=>scat($('#cr'),best.q.map(z=>({x:z[best.a],y:z[best.b]})),rg,best.a,best.b))}
+  // 7 cadeia
+  h+=sec('Efeito em cadeia entre máquinas','Correlação da produção entre pares de máquinas, testando defasagens de até 2 intervalos. Mostra quais máquinas parecem influenciar o fluxo umas das outras.',
+    A.chain.length?`<div class="sc"><table><tr><th>Máquina A</th><th>Máquina B</th><th>Correlação</th><th>Defasagem</th><th>Leitura</th></tr>${A.chain.slice(0,6).map(c=>`<tr><td>${c.a}</td><td>${c.b}</td><td>${fmt(c.r,2)}</td><td>${c.l}</td><td>${c.l===0?'variam juntas':c.l>0?c.b+' reage depois de '+c.a:c.a+' reage depois de '+c.b}</td></tr>`).join('')}</table></div><p class="read">Correlação indica associação, não prova que uma parada causou a outra. Confirme com o processo real.</p>`
+    :'<p class="read">Nenhuma associação forte (|r| ≥ 0,5) entre as produções das máquinas até o momento.</p>');
+  // 8 método
+  h+=sec('Metodologia e limitações','',`<div class="card"><ul class="m"><li><b>Anomalias:</b> desvio robusto (mediana e MAD), com limite de 3,5. Resiste a valores extremos que distorcem a média.</li><li><b>Parada:</b> qualquer leitura cujo <i>status</i> não indique operação normal. MTBF e MTTR usam o intervalo mediano entre leituras como duração mínima.</li><li><b>Índice de saúde:</b> regra heurística (indisponibilidade, anomalias, desvio recente, tendência), útil para priorizar e não um modelo preditivo treinado.</li><li><b>Precursores:</b> com poucas paradas a estimativa é frágil; quanto mais ocorrências, mais confiável.</li><li><b>Cadeia:</b> a correlação defasada sugere relações, sem provar causa.</li></ul></div>`);
+  const st=window.scrollY;app.innerHTML=h;D.forEach(f=>f());window.scrollTo(0,st);
+  $('#sm').onchange=e=>{sel.m=e.target.value;sel.v='';render()};$('#sv').onchange=e=>{sel.v=e.target.value;render()};
+}
+addEventListener('resize',()=>sched());
+if(location.protocol.startsWith('http'))$('#base').value=location.origin;
+render();startPull();
+</script>
+</body>
+</html>

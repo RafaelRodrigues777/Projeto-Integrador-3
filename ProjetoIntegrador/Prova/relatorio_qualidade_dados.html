@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Qualidade dos Dados - LogiTrack</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 35px;
+            background-color: #f5f7fa;
+            color: #263238;
+        }
+        h1, h2 {
+            color: #17365d;
+        }
+        .resumo {
+            background: white;
+            padding: 18px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background: white;
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #17365d;
+            color: white;
+        }
+        .aprovada {
+            color: #18733b;
+            font-weight: bold;
+        }
+        .reprovada {
+            color: #c62828;
+            font-weight: bold;
+        }
+        .observacao {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>Relatório de Qualidade dos Dados</h1>
+    <h2>LogiTrack — Validações com Great Expectations</h2>
+
+    <div class="resumo">
+        <p><strong>Data de geração:</strong> 28/10/2026 09:19:05</p>
+        <p><strong>Total de registros avaliados:</strong> 15,000</p>
+        <p><strong>Regras aprovadas:</strong> 0 de 4</p>
+        <p><strong>Regras reprovadas:</strong> 4 de 4</p>
+    </div>
+
+    <h2>Resultado das validações</h2>
+    <table class="dataframe tabela">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Regra</th>
+      <th>Status</th>
+      <th>Registros problemáticos</th>
+      <th>Critério</th>
+      <th>Percentual problemático (%)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Unicidade de id_entrega</td>
+      <td>REPROVADA</td>
+      <td>36</td>
+      <td>Cada ID de entrega deve ser único.</td>
+      <td>0.24</td>
+    </tr>
+    <tr>
+      <td>Ausência de nulos em prazo_real_dias</td>
+      <td>REPROVADA</td>
+      <td>65</td>
+      <td>O prazo real não deve conter valores nulos.</td>
+      <td>0.43</td>
+    </tr>
+    <tr>
+      <td>Custo operacional &gt; 0</td>
+      <td>REPROVADA</td>
+      <td>30</td>
+      <td>O custo operacional deve ser estritamente positivo.</td>
+      <td>0.20</td>
+    </tr>
+    <tr>
+      <td>Prazo prometido &gt; 0</td>
+      <td>REPROVADA</td>
+      <td>25</td>
+      <td>O prazo prometido deve ser estritamente positivo.</td>
+      <td>0.17</td>
+    </tr>
+  </tbody>
+</table>
+
+    <div class="observacao">
+        <p>
+            Observação: o percentual de registros problemáticos é calculado
+            sobre o total de registros. Um mesmo registro pode apresentar
+            mais de um problema. Na regra de unicidade, são contabilizadas
+            todas as linhas cujo ID aparece mais de uma vez.
+        </p>
+        <p>
+            Valores nulos em custo operacional e prazo prometido são
+            apresentados separadamente. A contagem de valores menores ou
+            iguais a zero não inclui os nulos.
+        </p>
+    </div>
+</body>
+</html>

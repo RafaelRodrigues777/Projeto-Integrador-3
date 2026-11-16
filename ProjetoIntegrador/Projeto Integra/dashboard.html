@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel industrial</title>
+<style>
+:root{--bg:#e8ecef;--panel:#fff;--ink:#14202b;--muted:#5d6b78;--line:#d3dae0;--ok:#1f7a4d;--warn:#b86e00;--bad:#b3261e;--man:#6d3fb2;--accent:#1f5f8b}
+@media(prefers-color-scheme:dark){:root{--bg:#0f161c;--panel:#18222b;--ink:#e6edf3;--muted:#93a1ae;--line:#2a3744;--ok:#47c585;--warn:#e8a23a;--bad:#ff6b61;--man:#b99aff;--accent:#6bb3e6}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 22px;background:var(--panel);border-bottom:1px solid var(--line)}
+h1{font-size:1.15rem;margin:0;font-weight:650}
+h2{font-size:1rem;margin:0 0 12px;font-weight:650}
+h3{font-size:.92rem;margin:16px 0 6px;color:var(--muted);font-weight:650}
+.status{display:flex;align-items:center;gap:8px;font-weight:600}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}
+.grow{flex:1}.meta{color:var(--muted);font-size:.88rem}
+select,input,a.btn{font:inherit;padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);text-decoration:none;cursor:pointer}
+input{width:90px;cursor:text}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{max-width:1240px;margin:0 auto;padding:20px 22px 40px;display:grid;gap:20px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;min-width:0}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600}
+.badge{display:inline-block;padding:1px 9px;border-radius:99px;font-size:.8rem;font-weight:600;border:1px solid currentColor}
+.badge.ok{color:var(--ok)}.badge.warn{color:var(--warn)}.badge.bad{color:var(--bad)}.badge.man{color:var(--man)}.badge.off{color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.kpi b{display:block;font-size:1.6rem;line-height:1.2}.kpi span{color:var(--muted);font-size:.85rem}
+.kpi.bad b{color:var(--bad)}.kpi.warn b{color:var(--warn)}.kpi.ok b{color:var(--ok)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.mc{border:1px solid var(--line);border-left:5px solid var(--ok);border-radius:8px;padding:12px 14px;min-width:0}
+.mc.warn{border-left-color:var(--warn)}.mc.bad{border-left-color:var(--bad)}.mc.man{border-left-color:var(--man)}.mc.off{border-left-color:var(--muted)}
+.mh{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mc p{margin:4px 0 8px;font-size:.84rem;color:var(--muted)}
+.ctl{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+canvas{width:100%;height:260px;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:.86rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:3px;margin-right:6px;vertical-align:middle;border-radius:2px}
+.erro{background:color-mix(in srgb,var(--bad) 12%,var(--panel));border-color:var(--bad)}
+.vazio,.nota{color:var(--muted);font-size:.86rem;padding:6px 0}
+.duas{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+details{font-size:.9rem}summary{cursor:pointer;font-weight:650}
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel industrial</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Conectando…</span></div>
+  <span class="meta" id="meta"></span><span class="grow"></span>
+  <label class="meta">Período <select id="periodo"><option value="15">15 min</option><option value="60" selected>1 h</option><option value="360">6 h</option><option value="0">Tudo</option></select></label>
+  <label class="meta">Atualizar a cada <select id="intervalo"><option value="2000">2 s</option><option value="5000" selected>5 s</option><option value="10000">10 s</option><option value="30000">30 s</option></select></label>
+  <a class="btn" id="csv" href="/api/csv">Baixar CSV</a>
+</header>
+<main>
+  <section id="erroBox" class="erro" hidden><strong>A coleta está falhando.</strong><div id="erroTxt"></div><div class="meta">Confira se você está na rede, se o IP e a porta estão certos e se o servidor está ligado.</div></section>
+  <section><div class="kpis" id="kpis"></div></section>
+  <section><h2>Máquinas: estado atual e regras de negócio</h2><div class="cards" id="cards"></div></section>
+  <section><h2>Evolução no período</h2>
+    <div class="ctl"><select id="gMaq" aria-label="Máquina"></select>
+      <select id="gVar" aria-label="Variável"><option value="temperatura">Temperatura</option><option value="vibracao">Vibração</option><option value="pressao">Pressão</option><option value="producao">Produção (acumulada)</option></select></div>
+    <canvas id="grafico"></canvas><div class="legend" id="legenda"></div>
+    <div class="nota">Com uma máquina selecionada, as linhas tracejadas mostram os limites de atenção e crítico.</div></section>
+  <section><h2>Alertas e ocorrências</h2>
+    <div class="ctl"><select id="fAl"><option value="ativos">Ativos</option><option value="resolvidos">Resolvidos</option><option value="recorrentes">Recorrentes (2+ vezes)</option><option value="todos">Todos</option></select></div>
+    <div id="alertas"></div></section>
+  <section><h2>Indicadores calculados no período</h2><div id="indic"></div>
+    <div class="nota">Produção, ciclos e falhas são acumulados: o painel soma as diferenças entre leituras e trata queda como reinicialização. Disponibilidade = tempo operando ÷ tempo observado (lacunas maiores que 1 min não contam). Informe a meta de produção do período para ativar o alerta de 70%.</div></section>
+  <section><h2>Análises e diagnóstico</h2>
+    <div class="duas"><div><h3>Diagnóstico combinado</h3><div id="diag"></div></div><div><h3>Manutenção preventiva</h3><div id="prev"></div></div></div>
+    <h3>Tendência e estimativa de temperatura</h3><div id="tend"></div>
+    <h3>Ranking operacional</h3><div class="duas"><div id="rankP"></div><div id="rankO"></div></div>
+    <div class="nota">O ranking de produtividade compara apenas a produção no período (unidades), sem misturar indicadores de natureza diferente. O de ocorrências conta os registros históricos.</div></section>
+  <section><h2>Leituras mais recentes</h2><div id="recentes"></div></section>
+  <section><h2>Qualidade e integridade dos dados</h2><div id="qual"></div></section>
+  <section><details><summary>Regras e fórmulas aplicadas</summary>
+    <p>Limites didáticos do descritivo (seção 08), editáveis no objeto <code>REGRAS</code> deste arquivo. Cada leitura é classificada no próprio painel, sem depender só do status enviado. Uma ocorrência abre quando o indicador sai de Normal e fecha quando volta; leituras seguidas no mesmo problema atualizam a mesma ocorrência. Sem leitura nova por mais de 15 s = sem comunicação. Taxa de defeitos = (defeitos ou rejeitados ÷ ciclos ou produção) × 100, alerta acima de 5%. Registros com campo obrigatório ausente, tipo inválido ou valor negativo vão para quarentena. Duplicatas (mesmo id, hora e máquina) são ignoradas. Campos ausentes não são tratados como zero.</p></details></section>
+</main>
+<script>
+const API=location.protocol==="file:"?"http://localhost:5000":"";
+const $=id=>document.getElementById(id);
+const CORES=["#1f5f8b","#c0562b","#2f8f5b","#8a4fb8","#b8890b","#c2386b","#3b8fa6"];
+const NIV=["Normal","Atenção","Crítico","Manutenção"],CLS=["ok","warn","bad","man"],COMM=15000;
+$("csv").href=API+"/api/csv";
+
+/* Regras: [campo, rótulo, unidade, modo, atenção, crítico, manutenção]. Alterar limites aqui. */
+const T=(a,b)=>["temperatura","Temperatura","°C","hi",a,b],V=(a,b,m)=>["vibracao","Vibração","mm/s","hi",a,b,m];
+const REGRAS={
+ TORNO_CNC_01:[T(62,67),V(2.8,3.6),["rotacao","Rotação","RPM","lo",2900,2750],["desgaste","Desgaste","%","hi",60,85,90]],
+ PRENSA_HIDRAULICA_01:[["pressao","Pressão","bar","loe",135,125],T(62,66),V(2.5,3.3)],
+ ESTEIRA_01:[["carga","Carga","%","hi",85,92],["velocidade","Velocidade","m/s","lo",1.7,1.55],T(44,47),V(3,3.6)],
+ ROBO_SOLDAGEM_01:[T(75,85),["corrente","Corrente","A","faixa",16.5,20],["falhas","Falhas acumuladas","","hi",2,null,5]],
+ COMPRESSOR_01:[["pressao","Pressão","bar","loe",7.5,6.5],T(75,85),V(4,null,5.5),["desgaste","Desgaste","%","hi",60,85],["consumo","Consumo","kW","hi",8,8.8]],
+ EMBALADORA_01:[["velocidade","Velocidade","","faixa",25,35,38],T(48,50),["falhas","Falhas acumuladas","","hi",2,null,4]]
+};
+function nivel(r,v){const m=r[3],a=r[4],c=r[5],mn=r[6];
+ if(m==="hi"){if(mn!=null&&v>mn)return[3,mn,">"];if(c!=null&&v>c)return[2,c,">"];if(v>a)return[1,a,">"];return[0]}
+ if(m==="lo"){if(v<c)return[2,c,"<"];if(v<a)return[1,a,"<"];return[0]}
+ if(m==="loe"){if(v<c)return[2,c,"<"];if(v<=a)return[1,a,"≤"];return[0]}
+ if(mn!=null&&v>mn)return[2,mn,">"];if(v>c)return[1,c,">"];if(v<a)return[1,a,"<"];return[0]}
+
+const st=s=>(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
+const f=(v,d=1)=>v==null||isNaN(v)?"–":Number(v).toLocaleString("pt-BR",{maximumFractionDigits:d});
+const hora=t=>t?new Date(t).toLocaleTimeString("pt-BR"):"–";
+const dh=t=>t?new Date(t).toLocaleString("pt-BR"):"–";
+const dur=ms=>{if(ms==null)return"–";const s=Math.round(ms/1000);if(s<60)return s+" s";const m=Math.floor(s/60);return m<60?m+" min "+s%60+" s":Math.floor(m/60)+" h "+m%60+" min"};
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+const bd=(l,x)=>el("span","badge "+(l<0?"off":CLS[l]),x??NIV[l]);
+const put=(id,n)=>{const e=$(id);e.textContent="";e.appendChild(n)};
+function tab(cab,L,vazio="Nenhum registro."){if(!L.length)return el("div","vazio",vazio);
+ const w=el("div","scroll"),t=el("table"),h=el("tr");cab.forEach(c=>h.appendChild(el("th","",c)));t.appendChild(el("thead")).appendChild(h);
+ const b=el("tbody");L.forEach(r=>{const tr=el("tr");r.forEach(c=>{const td=el("td");c instanceof Node?td.appendChild(c):td.textContent=c;tr.appendChild(td)});b.appendChild(tr)});
+ t.appendChild(b);w.appendChild(t);return w}
+const lista=(L,v)=>{if(!L.length)return el("div","vazio",v);const u=el("ul");L.forEach(x=>u.appendChild(el("li","",x)));return u};
+
+const num=v=>v===""||v==null?null:(isFinite(+v)?+v:NaN);
+function parseCSV(txt){const L=txt.replace(/^\uFEFF/,"").trim().split(/\r?\n/);L.shift();
+ const por={},quar=[],seen=new Set();let dup=0,tmax=0;
+ for(const l of L){if(!l)continue;const [id,ts,m,te,vi,pr,pd,s]=l.split(";");
+  const x={id,maquina:m,t:Date.parse(ts),temperatura:num(te),vibracao:num(vi),pressao:num(pr),producao:num(pd),status:s};
+  const nums=["temperatura","vibracao","pressao","producao"];
+  const mot=!m?"máquina ausente":isNaN(x.t)?"timestamp inválido":nums.some(k=>isNaN(x[k]))?"tipo inválido":["vibracao","pressao","producao"].some(k=>x[k]<0)?"valor negativo":null;
+  if(mot){quar.push({m:m||"(sem nome)",ts,mot});continue}
+  const k=id+"|"+ts+"|"+m;if(seen.has(k)){dup++;continue}seen.add(k);
+  (por[m]=por[m]||[]).push(x);if(x.t>tmax)tmax=x.t}
+ for(const n in por)por[n].sort((a,b)=>a.t-b.t);
+ return{por,quar,dup,tmax,linhas:L.length}}
+
+function avalia(n,x){const o=[];
+ for(const r of REGRAS[n]||[]){const v=x[r[0]];if(v==null||isNaN(v))continue;const[l,lim,op]=nivel(r,v);
+  o.push({campo:r[0],ind:r[1],un:r[2],lvl:l,val:v,lim:l?`${op} ${f(lim,2)} ${r[2]}`.trim():""})}
+ const s=st(x.status);if(s){const l=s.includes("MANUT")?3:s.includes("PARAD")?2:0;o.push({campo:"status",ind:"Status",un:"",lvl:l,val:x.status,lim:l?"status = "+s:""})}
+ return o}
+function ocorrencias(n,rows){const out=[],ab={};let prev=null;
+ for(const x of rows){
+  if(prev&&x.t-prev.t>COMM)out.push({maquina:n,ind:"Comunicação",lvl:2,ini:prev.t,fim:x.t,pico:"lacuna de "+dur(x.t-prev.t),un:"",lim:"> 15 s",n:1});
+  for(const e of avalia(n,x)){const o=ab[e.ind];
+   if(e.lvl>0){if(!o)ab[e.ind]={maquina:n,ind:e.ind,lvl:e.lvl,ini:x.t,fim:null,pico:e.val,un:e.un,lim:e.lim,n:1};
+    else{o.n++;if(e.lvl>o.lvl){o.lvl=e.lvl;o.pico=e.val;o.lim=e.lim}}}
+   else if(o){o.fim=x.t;out.push(o);delete ab[e.ind]}}
+  prev=x}
+ return out.concat(Object.values(ab))}
+function indicadores(rows){const n=rows.length,o={n,tmed:null,tmax:null,vmax:null,prod:null,pmed:null,paradas:0,tpar:0,disp:null};
+ const Tm=rows.map(x=>x.temperatura).filter(v=>v!=null),Vb=rows.map(x=>x.vibracao).filter(v=>v!=null);
+ if(Tm.length){o.tmed=Tm.reduce((a,b)=>a+b,0)/Tm.length;o.tmax=Math.max(...Tm)}
+ if(Vb.length)o.vmax=Math.max(...Vb);
+ let inc=0,hp=false,op=0,obs=0;
+ for(let i=1;i<n;i++){const a=rows[i-1],b=rows[i],dt=b.t-a.t,sa=st(a.status),sb=st(b.status);
+  if(a.producao!=null&&b.producao!=null){hp=true;const d=b.producao-a.producao;inc+=d>=0?d:b.producao}
+  if(dt<=60000){obs+=dt;if(sa==="OPERANDO")op+=dt;if(sa.includes("PARAD"))o.tpar+=dt}
+  if(sb.includes("PARAD")&&!sa.includes("PARAD"))o.paradas++}
+ if(hp){o.prod=inc;o.pmed=n>1?inc/(n-1):null}
+ if(obs>0)o.disp=op/obs*100;
+ return o}
+function tendencia(rows,k){const v=rows.map(x=>x[k]).filter(x=>x!=null);if(v.length<6)return null;
+ const h=Math.floor(v.length/2),m=a=>a.reduce((s,x)=>s+x,0)/a.length,a=m(v.slice(0,h)),b=m(v.slice(h));
+ return a?(b-a)/Math.abs(a)*100:0}
+function inclinacao(rows,k){const p=rows.filter(x=>x[k]!=null).slice(-120);if(p.length<8)return null;
+ const x=p.map(r=>(r.t-p[0].t)/60000),y=p.map(r=>r[k]),n=p.length,mx=x.reduce((a,b)=>a+b,0)/n,my=y.reduce((a,b)=>a+b,0)/n;
+ let sx=0,sy=0;for(let i=0;i<n;i++){sx+=(x[i]-mx)**2;sy+=(x[i]-mx)*(y[i]-my)}return sx?sy/sx:null}
+function extras(m){let x={};try{x=typeof m.raw==="string"?JSON.parse(m.raw):(m.raw||{})}catch(e){}
+ const o={};for(const k in x)if(typeof x[k]==="number")o[k]=x[k];return o}
+
+const METAS=(()=>{try{return JSON.parse(localStorage.getItem("metas")||"{}")}catch(e){return{}}})();
+const salvar=()=>{try{localStorage.setItem("metas",JSON.stringify(METAS))}catch(e){}};
+let DATA=null,seen={},timer=null;
+
+function grafico(S,L){const cv=$("grafico"),dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
+ cv.width=w*dpr;cv.height=h*dpr;const g=cv.getContext("2d");g.scale(dpr,dpr);const css=getComputedStyle(document.body),c=k=>css.getPropertyValue(k);
+ const vs=S.flatMap(s=>s.pts.map(p=>p[1])).concat(L.map(l=>l.v));$("legenda").textContent="";
+ g.font="12px sans-serif";if(!vs.length){g.fillStyle=c("--muted");g.fillText("Sem dados no período.",12,24);return}
+ const ts=S.flatMap(s=>s.pts.map(p=>p[0]));let t0=Math.min(...ts),t1=Math.max(...ts),lo=Math.min(...vs),hi=Math.max(...vs);
+ if(lo===hi){lo-=1;hi+=1}if(t0===t1)t1+=1;
+ const pd={l:44,r:12,t:10,b:22},X=t=>pd.l+(t-t0)/(t1-t0)*(w-pd.l-pd.r),Y=v=>pd.t+(1-(v-lo)/(hi-lo))*(h-pd.t-pd.b);
+ g.lineWidth=1;g.strokeStyle=c("--line");g.fillStyle=c("--muted");
+ for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4,y=Y(v);g.beginPath();g.moveTo(pd.l,y);g.lineTo(w-pd.r,y);g.stroke();g.fillText(f(v,v>100?0:1),4,y+4)}
+ g.fillText(hora(t0),pd.l,h-5);g.textAlign="right";g.fillText(hora(t1),w-pd.r,h-5);g.textAlign="left";
+ L.forEach(l=>{g.strokeStyle=c(l.cor);g.setLineDash([6,4]);g.beginPath();g.moveTo(pd.l,Y(l.v));g.lineTo(w-pd.r,Y(l.v));g.stroke();g.fillStyle=c(l.cor);g.fillText(l.t,pd.l+4,Y(l.v)-4)});g.setLineDash([]);
+ S.forEach(s=>{g.strokeStyle=s.cor;g.lineWidth=2;g.beginPath();s.pts.forEach((p,i)=>{const x=X(p[0]),y=Y(p[1]);i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke();
+  const it=el("span"),sw=el("i");sw.style.background=s.cor;it.append(sw,s.nome);$("legenda").appendChild(it)})}
+
+function card(a){const c=el("div","mc "+(a.com?"off":CLS[a.worst])),h=el("div","mh"),s=st(a.last.status);
+ h.append(el("b","",a.n),a.com?bd(-1,"Sem comunicação"):s.includes("PARAD")?bd(2,"Parada"):bd(a.worst));c.appendChild(h);
+ c.appendChild(el("p","",`Última leitura ${dh(a.last.t)} · status ${a.last.status||"–"} · produção acumulada ${f(a.last.producao,0)} · ${a.all.length} leituras`));
+ c.appendChild(tab(["Indicador","Valor","Limite aplicado","Estado"],a.cur.filter(e=>e.campo!=="status").map(e=>[e.ind,f(e.val,2)+" "+e.un,e.lim||"–",bd(e.lvl)]),"Sem indicadores com regra para os campos recebidos."));
+ const falt=(REGRAS[a.n]||[]).filter(r=>!a.cur.some(e=>e.campo===r[0])).map(r=>r[1]);
+ if(falt.length)c.appendChild(el("div","nota","Sem dado recebido: "+falt.join(", ")+"."));return c}
+
+function render(){if(!DATA)return;const{d,por,quar,dup,tmax,linhas}=DATA,agora=Date.now(),per=+$("periodo").value*60000,nomes=Object.keys(por).sort(),A={};
+ nomes.forEach(n=>{const all=por[n],last={...all[all.length-1]},m=d.maquinas.find(x=>x.maquina===n);if(m)Object.assign(last,extras(m));
+  const rp=per?all.filter(x=>x.t>=tmax-per):all,cur=avalia(n,last),oc=ocorrencias(n,all);
+  A[n]={n,all,last,rp,cur,oc,worst:Math.max(0,...cur.map(e=>e.lvl)),com:agora-(seen[n]?seen[n].t:agora)>COMM,ind:indicadores(rp)}});
+ const rec={};Object.values(A).forEach(a=>a.oc.forEach(o=>{const k=o.maquina+"|"+o.ind;rec[k]=(rec[k]||0)+1}));
+ /* alertas calculados na hora */
+ const live=[];Object.values(A).forEach(a=>{
+  if(a.com)live.push({maquina:a.n,ind:"Comunicação",lvl:2,val:"sem leitura há "+dur(agora-seen[a.n].t),lim:"> 15 s",just:"Sem nova leitura; última em "+dh(a.last.t)});
+  const mt=METAS[a.n];if(mt>0&&a.ind.prod!=null&&a.ind.prod<.7*mt)live.push({maquina:a.n,ind:"Produção abaixo da meta",lvl:1,val:f(a.ind.prod,0)+" un",lim:"< 70% de "+f(mt,0),just:`Faltam ${f(.7*mt-a.ind.prod,0)} un para 70% da meta`});
+  const df=a.last.defeitos??a.last.rejeitados,tt=a.last.ciclos??a.last.producao;if(df!=null&&tt>0){a.taxa=df/tt*100;if(a.taxa>5)live.push({maquina:a.n,ind:"Taxa de defeitos/rejeições",lvl:1,val:f(a.taxa,2)+"%",lim:"> 5%",just:"Qualidade acima do limite acumulado"})}});
+ const ativos=Object.values(A).flatMap(a=>a.oc.filter(o=>o.fim==null));
+ const cnt=l=>Object.values(A).filter(a=>!a.com&&a.worst===l).length;
+ const kp=(v,t,c)=>{const k=el("div","kpi "+(c&&v?c:""));k.append(el("b","",v),el("span","",t));return k};
+ const K=el("div","kpis");K.append(kp(nomes.length,"máquinas"),kp(cnt(0),"normais","ok"),kp(cnt(1),"em atenção","warn"),kp(cnt(2)+cnt(3),"críticas ou em manutenção","bad"),
+  kp(Object.values(A).filter(a=>a.com).length,"sem comunicação","bad"),kp(ativos.length+live.length,"alertas ativos","warn"),kp(d.total,"leituras salvas"),kp(quar.length,"em quarentena",quar.length?"bad":""));put("kpis",K);
+
+ const C=el("div","cards");nomes.forEach(n=>C.appendChild(card(A[n])));
+ put("cards",nomes.length?C:el("div","vazio","Ainda não chegou nenhuma leitura. Confira se as máquinas estão enviando dados."));
+
+ /* gráfico */
+ const sm=$("gMaq");if(sm.options.length!==nomes.length+1){const v=sm.value;sm.textContent="";sm.add(new Option("Todas as máquinas",""));nomes.forEach(n=>sm.add(new Option(n,n)));sm.value=v}
+ const vr=$("gVar").value,esc=sm.value?[sm.value]:nomes,L=[];
+ const S=esc.filter(n=>A[n]).map(n=>{const p=A[n].rp.filter(x=>x[vr]!=null),k=Math.max(1,Math.ceil(p.length/300));
+  return{nome:n,cor:CORES[nomes.indexOf(n)%CORES.length],pts:p.filter((_,i)=>i%k===0||i===p.length-1).map(x=>[x.t,x[vr]])}});
+ if(sm.value){const r=(REGRAS[sm.value]||[]).find(x=>x[0]===vr);if(r){if(r[4]!=null)L.push({v:r[4],t:"atenção",cor:"--warn"});if(r[5]!=null)L.push({v:r[5],t:"crítico",cor:"--bad"});if(r[6]!=null)L.push({v:r[6],t:"manutenção",cor:"--man"})}}
+ grafico(S,L);
+
+ /* alertas */
+ const fl=$("fAl").value,oc=Object.values(A).flatMap(a=>a.oc);
+ let R=oc.map(o=>({...o,rec:rec[o.maquina+"|"+o.ind],val:typeof o.pico==="number"?f(o.pico,2)+" "+o.un:o.pico,just:`${o.ind}: pico ${typeof o.pico==="number"?f(o.pico,2)+" "+o.un:o.pico}, limite ${o.lim}, ${o.n} leitura(s) na ocorrência`}));
+ const lv=live.map(x=>({...x,ini:null,fim:null,n:1,rec:1}));
+ R=fl==="ativos"?R.filter(o=>o.fim==null).concat(lv):fl==="resolvidos"?R.filter(o=>o.fim!=null):fl==="recorrentes"?R.filter(o=>o.rec>=2):R.concat(lv);
+ R.sort((a,b)=>(b.fim==null)-(a.fim==null)||b.lvl-a.lvl||(b.ini||0)-(a.ini||0));
+ put("alertas",tab(["Máquina","Indicador","Nível","Valor","Limite","Início","Fim","Duração","Ocorrências","Justificativa"],R.slice(0,200).map(o=>[o.maquina,o.ind,bd(o.lvl),o.val,o.lim,o.ini?dh(o.ini):"–",o.fim?dh(o.fim):o.ini?"em andamento":"–",o.ini?dur((o.fim||tmax)-o.ini):"–",o.rec,o.just]),"Nenhuma ocorrência neste filtro."));
+
+ /* indicadores */
+ if(!document.activeElement||!document.activeElement.closest("#indic")){
+  put("indic",tab(["Máquina","Leituras","Temp. média","Temp. máx.","Vibração máx.","Produção","Prod./intervalo","Paradas","Tempo parado","Disponib.","Defeitos/rejeição","Meta","% da meta"],nomes.map(n=>{const a=A[n],i=a.ind,inp=el("input");
+   inp.type="number";inp.min=0;inp.value=METAS[n]||"";inp.placeholder="un/período";inp.setAttribute("aria-label","Meta de "+n);inp.onchange=()=>{METAS[n]=+inp.value;salvar();inp.blur();render()};
+   return[n,i.n,f(i.tmed)+" °C",f(i.tmax)+" °C",f(i.vmax,2),f(i.prod,0),f(i.pmed,1),i.paradas,dur(i.tpar),i.disp==null?"–":f(i.disp)+"%",a.taxa==null?"–":f(a.taxa,2)+"%",inp,METAS[n]>0&&i.prod!=null?f(i.prod/METAS[n]*100,0)+"%":"–"]})))}
+
+ /* análises */
+ const comb=Object.values(A).map(a=>({a,l:a.cur.filter(e=>e.lvl>0)})).filter(x=>x.l.length>=2);
+ put("diag",lista(comb.map(x=>`${x.a.n}: `+x.l.map(e=>`${e.ind} (${NIV[e.lvl]})`).join(" + ")),"Nenhuma máquina com 2+ indicadores fora do normal."));
+ const prev=[],tr=[];
+ Object.values(A).forEach(a=>{const rz=[],cr=a.cur.find(e=>e.campo==="temperatura"),rt=(REGRAS[a.n]||[]).find(r=>r[0]==="temperatura"),sl=inclinacao(a.rp,"temperatura");
+  let est="sem dados suficientes";if(sl!=null&&cr&&rt){const m=(rt[5]-cr.val)/sl;est=cr.val>rt[5]?"já acima do crítico":sl<=0.001?"sem tendência de alta":m>1440?"mais de 24 h":"≈ "+dur(m*60000)+" até o limite crítico";if(sl>0.001&&m<120&&cr.val<=rt[5])rz.push("temperatura projetada ao limite crítico em "+dur(m*60000))}
+  const sym=p=>p==null?"–":Math.abs(p)<3?"→ estável":(p>0?"↑ +":"↓ ")+f(p,1)+"%";
+  tr.push([a.n,sym(tendencia(a.rp,"temperatura")),sym(tendencia(a.rp,"vibracao")),est]);
+  if(a.cur.some(e=>e.lvl>=2))rz.push("indicador crítico ou de manutenção ativo");
+  Object.keys(rec).filter(k=>k.startsWith(a.n+"|")&&rec[k]>=3).forEach(k=>rz.push(`${k.split("|")[1]} recorrente (${rec[k]} ocorrências)`));
+  a.cur.filter(e=>["desgaste","falhas"].includes(e.campo)&&e.lvl>0).forEach(e=>rz.push(e.ind+" elevado ("+f(e.val,0)+")"));
+  if(rz.length)prev.push(`${a.n}: inspecionar. Motivos: ${rz.join("; ")}`)});
+ put("prev",lista(prev,"Nenhuma inspeção indicada pelos critérios atuais."));
+ put("tend",tab(["Máquina","Temperatura (metade final × inicial)","Vibração","Estimativa (regressão linear)"],tr));
+ const nota=el("div","nota","A estimativa extrapola a tendência recente em linha reta; é aproximada e perde validade se a carga ou a manutenção mudar.");$("tend").appendChild(nota);
+ put("rankP",tab(["#","Produtividade","Produção no período"],Object.values(A).filter(a=>a.ind.prod!=null).sort((x,y)=>y.ind.prod-x.ind.prod).map((a,i)=>[i+1,a.n,f(a.ind.prod,0)])));
+ put("rankO",tab(["#","Ocorrências","Total (ativas)"],Object.values(A).sort((x,y)=>y.oc.length-x.oc.length).map((a,i)=>[i+1,a.n,a.oc.length+" ("+a.oc.filter(o=>o.fim==null).length+")"])));
+
+ put("recentes",tab(["Hora","Máquina","Status","Temp.","Vibração","Pressão","Produção"],d.recentes.map(m=>[hora(Date.parse(m.timestamp)),m.maquina,bd(st(m.status)==="OPERANDO"?0:/PARAD|FALHA|ERRO/.test(st(m.status))?2:1,m.status||"–"),f(m.temperatura),f(m.vibracao,2),f(m.pressao),f(m.producao,0)])));
+ const q=el("div");q.append(el("p","",`${linhas} registros lidos do banco · ${dup} duplicados ignorados · ${quar.length} em quarentena.`),
+  tab(["Máquina","Timestamp","Motivo"],quar.slice(-10).reverse().map(x=>[x.m,x.ts,x.mot]),"Nenhum registro inconsistente encontrado."));put("qual",q)}
+
+async function atualizar(){
+ try{const[r,rc]=await Promise.all([fetch(API+"/api/estado",{cache:"no-store"}),fetch(API+"/api/csv",{cache:"no-store"})]);
+  const d=await r.json(),csv=parseCSV(await rc.text()),c=d.coletor,agora=Date.now();
+  d.maquinas.forEach(m=>{const s=seen[m.maquina];if(!s||s.qtd!==m.qtd)seen[m.maquina]={qtd:m.qtd,t:agora}});
+  DATA={d,...csv};
+  $("dot").className="dot "+(c.ok?"ok":"bad");$("statusTxt").textContent=c.ok?"Coletando":"Sem conexão com a API";
+  $("meta").textContent=`${d.total} leituras salvas · última coleta ${c.ultimo_sucesso||"–"} · ${d.base}`;
+  $("erroBox").hidden=c.ok;$("erroTxt").textContent=c.erro||"";
+  render()}
+ catch(e){$("dot").className="dot bad";$("statusTxt").textContent="Sem contato com o coletor: rode py coletor.py e deixe o terminal aberto"}}
+function agendar(){clearInterval(timer);timer=setInterval(atualizar,+$("intervalo").value)}
+$("intervalo").addEventListener("change",agendar);
+["periodo","gMaq","gVar","fAl"].forEach(i=>$(i).addEventListener("change",render));
+window.addEventListener("resize",render);
+atualizar();agendar();
+</script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Análise exploratória · Dados da ESP</title>
+<style>
+:root{--bg:#f1f3ef;--card:#fff;--ink:#1d2420;--mut:#66726b;--line:#d9ded7;--ac:#0f7b6c;--ac2:#e6f2ef;--bad:#c8402a;--warn:#d89a1d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",Roboto,Arial,sans-serif}
+header{background:var(--ink);color:#fff;padding:14px 20px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+header h1{font-size:1.05rem;margin:0;font-weight:700;margin-right:auto}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#888;margin-right:6px}
+.dot.ok{background:#3ddc97}.dot.err{background:var(--bad)}
+#msg{font-size:.85rem;color:#c9d3cd}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--line)}
+.bar label{display:flex;flex-direction:column;font-size:.78rem;color:var(--mut);gap:3px}
+input,select,button{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+button{cursor:pointer}button:hover{border-color:var(--ac)}
+button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+nav{display:flex;gap:4px;padding:10px 20px 0;flex-wrap:wrap}
+nav button{border-radius:6px 6px 0 0;border-bottom:0;background:transparent;color:var(--mut)}
+nav button.on{background:var(--card);color:var(--ink);font-weight:700;border-color:var(--line)}
+#view{padding:18px 20px 40px;max-width:1200px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px}
+.card h3{margin:0 0 6px;font-size:.95rem;display:flex;justify-content:space-between;gap:8px}
+.badge{font-size:.72rem;padding:2px 8px;border-radius:99px;background:var(--ac2);color:var(--ac);font-weight:700}
+.badge.bad{background:#fbe6e1;color:var(--bad)}.badge.warn{background:#fbf0d6;color:#8a5f06}
+.kv{display:grid;grid-template-columns:1fr auto;font-size:.88rem;color:var(--mut)}
+.kv b{color:var(--ink);font-variant-numeric:tabular-nums}
+canvas{width:100%;height:300px;display:block}
+table{border-collapse:collapse;width:100%;font-size:.85rem;font-variant-numeric:tabular-nums}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:#eaeee8;position:sticky;top:0}
+.sc{overflow:auto;max-height:480px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+.row label{display:flex;flex-direction:column;font-size:.78rem;color:var(--mut);gap:3px}
+.empty{padding:40px 20px;text-align:center;color:var(--mut);background:var(--card);border:1px dashed var(--line);border-radius:8px}
+h2{font-size:1.05rem;margin:18px 0 8px}
+small{color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Análise exploratória · dados da ESP</h1>
+  <span id="msg"><i class="dot" id="dot"></i><span id="st">desconectado</span></span>
+  <span id="cnt" style="font-size:.85rem"></span>
+</header>
+
+<div class="bar">
+  <label>URL base<input id="base" value="http://10.69.18.92:8080" size="26"></label>
+  <label>Endpoint<input id="ep" value="/maquinas" size="12"></label>
+  <label>Intervalo (s)<input id="iv" type="number" min="1" value="5" style="width:80px"></label>
+  <button class="p" id="go">Conectar</button>
+  <button id="demo">Modo demonstração</button>
+  <label>Importar JSON/CSV<input id="file" type="file" accept=".json,.csv,.txt"></label>
+  <button id="exp">Exportar CSV</button>
+  <button id="clr">Limpar dados</button>
+</div>
+
+<nav id="nav">
+  <button data-t="ov" class="on">Visão geral</button>
+  <button data-t="ts">Séries e anomalias</button>
+  <button data-t="di">Distribuição</button>
+  <button data-t="co">Correlação</button>
+  <button data-t="da">Dados brutos</button>
+</nav>
+
+<div id="view"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+let rows=[],seen=new Set(),tab='ov',timer=null,demoT=null,sel={m:'',v:'',z:3};
+try{const s=JSON.parse(localStorage.getItem('esp_rows')||'[]');ingest(s,true)}catch(e){}
+
+function setSt(t,k){$('#st').textContent=t;$('#dot').className='dot '+(k||'')}
+function ingest(arr,quiet){
+  let n=0;
+  for(const r of arr){
+    if(!r||typeof r!=='object')continue;
+    const k=(r.id??'')+'|'+(r.timestamp??'')+'|'+(r.maquina??'');
+    if(seen.has(k))continue;seen.add(k);
+    r._t=Date.parse(r.timestamp)||Date.now();
+    if(!r.maquina)r.maquina='(sem id)';
+    rows.push(r);n++;
+  }
+  if(rows.length>20000){rows=rows.slice(-20000)}
+  if(n){try{localStorage.setItem('esp_rows',JSON.stringify(rows.slice(-5000)))}catch(e){}}
+  if(!quiet){render()}
+  return n;
+}
+async function pull(){
+  const u=$('#base').value.replace(/\/$/,'')+$('#ep').value;
+  try{
+    const r=await fetch(u,{cache:'no-store'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    const n=ingest(Array.isArray(j)?j:[j]);
+    setSt('conectado · +'+n+' novas leituras','ok');
+  }catch(e){
+    let h=e.message;
+    if(location.protocol==='https:'&&u.startsWith('http:'))h+=' (página https não acessa http: abra o arquivo localmente)';
+    else if(e.name==='TypeError')h+=' (verifique IP, rede e CORS no servidor)';
+    setSt('erro: '+h,'err');
+  }
+}
+$('#go').onclick=()=>{
+  if(timer){clearInterval(timer);timer=null;$('#go').textContent='Conectar';setSt('pausado');return}
+  stopDemo();pull();timer=setInterval(pull,Math.max(1,+$('#iv').value)*1000);$('#go').textContent='Pausar';
+};
+function stopDemo(){if(demoT){clearInterval(demoT);demoT=null;$('#demo').textContent='Modo demonstração'}}
+$('#demo').onclick=()=>{
+  if(demoT){stopDemo();setSt('demo parado');return}
+  if(timer){clearInterval(timer);timer=null;$('#go').textContent='Conectar'}
+  const ms=['TORNO_CNC_01','PRENSA_HIDRAULICA_01','ESTEIRA_01','ROBO_SOLDAGEM_01','COMPRESSOR_01','EMBALADORA_01'];
+  let id=rows.length+1;
+  demoT=setInterval(()=>{
+    const a=ms.map(m=>{
+      const f=Math.random()<.03,base=50+ms.indexOf(m)*4;
+      const t=base+Math.sin(Date.now()/20000)*6+Math.random()*3+(f?25:0);
+      const v=2+Math.random()*1.2+(t-base)*.05+(f?4:0);
+      return {id:id++,timestamp:new Date().toISOString(),maquina:m,temperatura:+t.toFixed(1),vibracao:+v.toFixed(2),
+        producao:Math.round(f?20:140+Math.random()*20-(t-base)*2),status:f?'falha':(Math.random()<.04?'parada':'operando')}});
+    ingest(a);setSt('modo demonstração (dados simulados)','ok');
+  },2000);
+  $('#demo').textContent='Parar demonstração';
+};
+$('#file').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;const t=await f.text();let a=[];
+  try{
+    if(t.trim()[0]==='['||t.trim()[0]==='{'){const j=JSON.parse(t);a=Array.isArray(j)?j:[j]}
+    else{
+      const L=t.trim().split(/\r?\n/),d=L[0].includes(';')?';':',',h=L[0].split(d);
+      a=L.slice(1).map(l=>{const c=l.split(d),o={};h.forEach((k,i)=>{const x=c[i];o[k.trim()]=x===''||x===undefined?undefined:(isNaN(+x)?x:+x)});return o});
+    }
+    setSt('importadas '+ingest(a)+' leituras','ok');
+  }catch(err){setSt('arquivo inválido: '+err.message,'err')}
+  e.target.value='';
+};
+$('#exp').onclick=()=>{
+  if(!rows.length)return;
+  const ks=cols();const csv=[ks.join(';')].concat(rows.map(r=>ks.map(k=>r[k]??'').join(';'))).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='leituras.csv';a.click();
+};
+$('#clr').onclick=()=>{if(confirm('Apagar todas as leituras coletadas?')){rows=[];seen=new Set();localStorage.removeItem('esp_rows');render()}};
+$('#nav').onclick=e=>{const t=e.target.dataset.t;if(!t)return;tab=t;[...$('#nav').children].forEach(b=>b.classList.toggle('on',b.dataset.t===t));render()};
+
+/* ---------- utilidades ---------- */
+const cols=()=>{const s=new Set();rows.slice(-300).forEach(r=>Object.keys(r).forEach(k=>k!=='_t'&&s.add(k)));return[...s]};
+const machines=()=>[...new Set(rows.map(r=>r.maquina))].sort();
+const numKeys=rs=>{const s=new Set();rs.slice(-300).forEach(r=>{for(const k in r)if(k!=='id'&&k!=='_t'&&typeof r[k]==='number'&&isFinite(r[k]))s.add(k)});return[...s]};
+const of=(m)=>rows.filter(r=>r.maquina===m).sort((a,b)=>a._t-b._t);
+const fmt=(x,d=2)=>x==null||isNaN(x)?'–':(+x).toFixed(d);
+function stats(a){
+  if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),n=s.length,m=s.reduce((p,c)=>p+c,0)/n;
+  const sd=Math.sqrt(s.reduce((p,c)=>p+(c-m)**2,0)/Math.max(1,n-1)),q=p=>s[Math.min(n-1,Math.floor(p*(n-1)))];
+  return{n,m,sd,min:s[0],q1:q(.25),med:q(.5),q3:q(.75),max:s[n-1]};
+}
+function pearson(x,y){
+  const n=x.length;if(n<3)return NaN;const mx=x.reduce((a,b)=>a+b,0)/n,my=y.reduce((a,b)=>a+b,0)/n;
+  let sxy=0,sx=0,sy=0;for(let i=0;i<n;i++){sxy+=(x[i]-mx)*(y[i]-my);sx+=(x[i]-mx)**2;sy+=(y[i]-my)**2}
+  return sx&&sy?sxy/Math.sqrt(sx*sy):NaN;
+}
+function setup(c){const d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*d;c.height=h*d;const g=c.getContext('2d');g.scale(d,d);g.clearRect(0,0,w,h);g.font='11px Segoe UI,Arial';return{g,w,h}}
+function axes(g,w,h,x0,x1,y0,y1,xf){
+  const P={l:48,r:10,t:10,b:24};g.strokeStyle='#d9ded7';g.fillStyle='#66726b';g.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=P.t+(h-P.t-P.b)*i/4;g.beginPath();g.moveTo(P.l,y);g.lineTo(w-P.r,y);g.stroke();
+    g.textAlign='right';g.fillText(fmt(y1-(y1-y0)*i/4,y1-y0<10?2:0),P.l-6,y+4)}
+  for(let i=0;i<=4;i++){const x=P.l+(w-P.l-P.r)*i/4;g.textAlign='center';g.fillText(xf(x0+(x1-x0)*i/4),x,h-8)}
+  return{X:v=>P.l+(v-x0)/((x1-x0)||1)*(w-P.l-P.r),Y:v=>h-P.b-(v-y0)/((y1-y0)||1)*(h-P.t-P.b)};
+}
+const tf=t=>new Date(t).toLocaleTimeString('pt-BR');
+
+function lineChart(c,pts,z){
+  const {g,w,h}=setup(c);if(pts.length<2)return;
+  const ys=pts.map(p=>p.y),st=stats(ys),y0=Math.min(...ys),y1=Math.max(...ys),pad=(y1-y0)*.08||1;
+  const x0=pts[0].x,x1=pts[pts.length-1].x;
+  const A=axes(g,w,h,x0,x1,y0-pad,y1+pad,tf);
+  const ly=st.m-z*st.sd,hy=st.m+z*st.sd;
+  g.setLineDash([4,4]);g.strokeStyle='#d89a1d';
+  [st.m,ly,hy].forEach((v,i)=>{if(v>y0-pad&&v<y1+pad){g.beginPath();g.moveTo(48,A.Y(v));g.lineTo(w-10,A.Y(v));g.globalAlpha=i?1:.4;g.stroke();g.globalAlpha=1}});
+  g.setLineDash([]);g.strokeStyle='#0f7b6c';g.lineWidth=1.5;g.beginPath();
+  pts.forEach((p,i)=>i?g.lineTo(A.X(p.x),A.Y(p.y)):g.moveTo(A.X(p.x),A.Y(p.y)));g.stroke();
+  g.fillStyle='#c8402a';pts.forEach(p=>{if(st.sd&&Math.abs(p.y-st.m)>z*st.sd){g.beginPath();g.arc(A.X(p.x),A.Y(p.y),4,0,7);g.fill()}});
+}
+function histChart(c,a){
+  const {g,w,h}=setup(c);if(a.length<2)return;const s=stats(a),B=Math.min(24,Math.max(6,Math.ceil(Math.sqrt(a.length))));
+  const lo=s.min,hi=s.max===s.min?s.min+1:s.max,bw=(hi-lo)/B,bins=Array(B).fill(0);
+  a.forEach(v=>bins[Math.min(B-1,Math.floor((v-lo)/bw))]++);const mx=Math.max(...bins);
+  const A=axes(g,w,h,lo,hi,0,mx,v=>fmt(v,1));g.fillStyle='#0f7b6c';
+  bins.forEach((n,i)=>{const x=A.X(lo+i*bw),x2=A.X(lo+(i+1)*bw);g.fillRect(x+1,A.Y(n),x2-x-2,A.Y(0)-A.Y(n))});
+}
+function scatterChart(c,xs,ys){
+  const {g,w,h}=setup(c);if(xs.length<2)return;
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const A=axes(g,w,h,x0,x1,y0,y1,v=>fmt(v,1));g.fillStyle='rgba(15,123,108,.5)';
+  xs.forEach((x,i)=>{g.beginPath();g.arc(A.X(x),A.Y(ys[i]),3,0,7);g.fill()});
+}
+
+/* ---------- telas ---------- */
+function picker(withVar,withZ,second){
+  const ms=machines();if(!ms.includes(sel.m))sel.m=ms[0]||'';
+  const ks=numKeys(of(sel.m));if(!ks.includes(sel.v))sel.v=ks[0]||'';
+  if(second&&!ks.includes(sel.v2))sel.v2=ks.find(k=>k!==sel.v)||sel.v;
+  return `<div class="row"><label>Máquina<select id="sm">${ms.map(m=>`<option ${m===sel.m?'selected':''}>${m}</option>`).join('')}</select></label>
+  ${withVar?`<label>${second?'Variável X':'Variável'}<select id="sv">${ks.map(k=>`<option ${k===sel.v?'selected':''}>${k}</option>`).join('')}</select></label>`:''}
+  ${second?`<label>Variável Y<select id="sv2">${ks.map(k=>`<option ${k===sel.v2?'selected':''}>${k}</option>`).join('')}</select></label>`:''}
+  ${withZ?`<label>Limite de anomalia (desvios)<input id="sz" type="number" step=".5" min="1" value="${sel.z}" style="width:90px"></label>`:''}</div>`;
+}
+function bind(){
+  const f=(id,k,n)=>{const e=$(id);if(e)e.onchange=()=>{sel[k]=n?+e.value:e.value;if(k==='m'){sel.v='';sel.v2=''}render()}};
+  f('#sm','m');f('#sv','v');f('#sv2','v2');f('#sz','z',1);
+}
+function render(){
+  $('#cnt').textContent=rows.length+' leituras · '+machines().length+' máquinas';
+  const V=$('#view');
+  if(!rows.length){V.innerHTML='<div class="empty"><b>Nenhum dado ainda.</b><br>Clique em <b>Conectar</b> para ler a API, importe um arquivo JSON/CSV ou use o modo demonstração.</div>';return}
+  ({ov,ts,di,co,da})[tab](V);
+}
+function ov(V){
+  V.innerHTML='<div class="grid">'+machines().map(m=>{
+    const a=of(m),l=a[a.length-1],ks=numKeys(a),stt=String(l.status||'').toLowerCase();
+    const cls=/falha|erro|alarme/.test(stt)?'bad':/parada|manut/.test(stt)?'warn':'';
+    const par=a.filter(r=>/parada|falha|manut/i.test(r.status||'')).length;
+    return `<div class="card"><h3>${m}<span class="badge ${cls}">${l.status??'–'}</span></h3><div class="kv">
+      <span>Leituras</span><b>${a.length}</b><span>Última</span><b>${tf(l._t)}</b>
+      <span>Em parada/falha</span><b>${fmt(par/a.length*100,1)}%</b>
+      ${ks.map(k=>{const s=stats(a.map(r=>r[k]).filter(v=>typeof v==='number'));return `<span>${k} (atual · média)</span><b>${fmt(l[k],1)} · ${fmt(s.m,1)}</b>`}).join('')}
+    </div></div>`}).join('')+'</div>';
+}
+function ts(V){
+  V.innerHTML=picker(1,1)+'<div class="card"><canvas id="c"></canvas><small>Linha tracejada: média e limites ±desvios. Pontos vermelhos: anomalias.</small></div><div id="an"></div>';bind();
+  const a=of(sel.m).filter(r=>typeof r[sel.v]==='number');
+  const pts=a.map(r=>({x:r._t,y:r[sel.v],r}));
+  lineChart($('#c'),pts,sel.z);
+  const s=stats(pts.map(p=>p.y));if(!s)return;
+  const an=pts.filter(p=>s.sd&&Math.abs(p.y-s.m)>sel.z*s.sd).slice(-100).reverse();
+  $('#an').innerHTML=`<h2>${an.length} anomalias em ${sel.m} · ${sel.v}</h2>`+(an.length?`<div class="sc"><table><tr><th>Horário</th><th>Valor</th><th>Desvios</th><th>Status</th></tr>${an.map(p=>`<tr><td>${tf(p.x)}</td><td>${fmt(p.y)}</td><td>${fmt((p.y-s.m)/s.sd,1)}</td><td>${p.r.status??''}</td></tr>`).join('')}</table></div>`:'<small>Nenhum ponto acima do limite.</small>');
+}
+function di(V){
+  V.innerHTML=picker(1)+'<div class="card"><canvas id="c"></canvas></div><h2>Resumo por máquina · '+(sel.v||'')+'</h2><div class="sc" id="tb"></div>';bind();
+  histChart($('#c'),of(sel.m).map(r=>r[sel.v]).filter(v=>typeof v==='number'));
+  const R=machines().map(m=>[m,stats(of(m).map(r=>r[sel.v]).filter(v=>typeof v==='number'))]).filter(x=>x[1]);
+  $('#tb').innerHTML='<table><tr><th>Máquina</th><th>n</th><th>Média</th><th>Desvio</th><th>Mín</th><th>Q1</th><th>Mediana</th><th>Q3</th><th>Máx</th></tr>'+
+    R.map(([m,s])=>`<tr><td>${m}</td><td>${s.n}</td><td>${fmt(s.m)}</td><td>${fmt(s.sd)}</td><td>${fmt(s.min)}</td><td>${fmt(s.q1)}</td><td>${fmt(s.med)}</td><td>${fmt(s.q3)}</td><td>${fmt(s.max)}</td></tr>`).join('')+'</table>';
+}
+function co(V){
+  V.innerHTML=picker(1,0,1)+'<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px"><div class="card"><h3>Dispersão</h3><canvas id="c"></canvas></div><div class="card" id="mx" style="overflow:auto"></div></div>';bind();
+  const a=of(sel.m),ks=numKeys(a);
+  const pr=a.filter(r=>typeof r[sel.v]==='number'&&typeof r[sel.v2]==='number');
+  scatterChart($('#c'),pr.map(r=>r[sel.v]),pr.map(r=>r[sel.v2]));
+  const cell=r=>{const h=isNaN(r)?'0 0% 90%':(r>0?'170 60%':'8 60%')+' '+(100-Math.abs(r)*55)+'%';return `<td style="background:hsl(${h});text-align:center">${fmt(r)}</td>`};
+  $('#mx').innerHTML='<h3>Correlação de Pearson · '+sel.m+'</h3><table><tr><th></th>'+ks.map(k=>`<th>${k}</th>`).join('')+'</tr>'+
+    ks.map(k1=>`<tr><td><b>${k1}</b></td>${ks.map(k2=>{const p=a.filter(r=>typeof r[k1]==='number'&&typeof r[k2]==='number');return cell(k1===k2?1:pearson(p.map(r=>r[k1]),p.map(r=>r[k2])))}).join('')}</tr>`).join('')+'</table><small>Verde: positiva · vermelho: negativa. Correlação não implica causa.</small>';
+}
+function da(V){
+  const ms=machines(),ks=cols();
+  V.innerHTML=`<div class="row"><label>Filtrar máquina<select id="fm"><option value="">todas</option>${ms.map(m=>`<option ${m===sel.f?'selected':''}>${m}</option>`).join('')}</select></label></div><div class="sc"><table><tr>${ks.map(k=>`<th>${k}</th>`).join('')}</tr>${
+    rows.filter(r=>!sel.f||r.maquina===sel.f).slice(-200).reverse().map(r=>`<tr>${ks.map(k=>`<td>${r[k]??''}</td>`).join('')}</tr>`).join('')}</table></div><small>Mostrando as 200 leituras mais recentes.</small>`;
+  $('#fm').onchange=e=>{sel.f=e.target.value;render()};
+}
+addEventListener('resize',()=>render());
+render();
+</script>
+</body>
+</html>
