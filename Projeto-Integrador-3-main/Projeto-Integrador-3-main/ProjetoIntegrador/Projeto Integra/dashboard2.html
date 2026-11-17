@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoramento Industrial | Bosch</title>
+
+<style>
+:root {
+    --red: #ED0007;          /* vermelho Bosch (referência pública) */
+    --red-dark: #B80005;
+    --graphite: #26282B;     /* grafite industrial */
+    --graphite-2: #3A3D42;
+    --steel: #B6BBBE;        /* cinza X11 */
+    --steel-light: #E4E7EA;
+    --bg: #EDEFF1;
+    --white: #FFFFFF;
+    --text: #1E2024;
+    --muted: #6B7177;
+    --border: #D5D9DD;
+    --ok: #1E8A5A;
+    --warn: #E09A00;
+    --na: #8A9097;
+    --shadow: 0 2px 8px rgba(20, 22, 25, .08);
+    --mono: "Consolas", "Courier New", monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    background-color: var(--bg);
+    background-image:
+        linear-gradient(rgba(38, 40, 43, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(38, 40, 43, .035) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--text);
+}
+
+.app { min-height: 100vh; }
+
+/* MENU CENTRAL FLUTUANTE */
+.nav-central {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 50; display: flex; align-items: stretch;
+    background: var(--graphite); border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(20, 22, 25, .28);
+    max-width: calc(100% - 24px); overflow-x: auto;
+}
+.menu-item {
+    display: flex; align-items: center; gap: 8px; padding: 12px 20px;
+    color: #C9CED3; font-size: 12px; font-weight: 600; letter-spacing: .6px;
+    text-transform: uppercase; cursor: pointer; white-space: nowrap;
+    transition: background .15s, color .15s; border-right: 1px solid var(--graphite-2);
+}
+.menu-item:last-child { border-right: none; }
+.menu-item:hover { background: var(--graphite-2); color: #fff; }
+.menu-item.active { background: var(--red); color: #fff; }
+.menu-item .ico { font-size: 14px; width: 16px; text-align: center; }
+
+/* MAIN */
+.main {
+    padding: 96px 36px 30px; max-width: 1800px; margin: 0 auto;
+}
+
+section, .section-heading { scroll-margin-top: 90px; }
+
+/* CABEÇALHO */
+.hero {
+    background: var(--graphite); color: #fff; border-radius: 6px;
+    padding: 22px 26px; display: flex; justify-content: space-between;
+    align-items: center; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 24px; border-left: 6px solid var(--red);
+}
+.hero h1 { font-size: 20px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700; }
+.hero p { font-size: 12px; color: #AEB4BA; margin-top: 6px; }
+.hero-status { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+
+.connection {
+    font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+    text-transform: uppercase; letter-spacing: .6px;
+    background: rgba(255, 255, 255, .07); padding: 8px 12px; border-radius: 4px;
+}
+.dot { width: 9px; height: 9px; background: var(--ok); border-radius: 50%; box-shadow: 0 0 0 3px rgba(30, 138, 90, .25); }
+.dot.off { background: var(--red); box-shadow: 0 0 0 3px rgba(237, 0, 7, .25); }
+
+.updated {
+    font-size: 10px; color: #AEB4BA; text-transform: uppercase;
+    letter-spacing: .6px; text-align: right;
+}
+.updated strong { display: block; font-family: var(--mono); font-size: 14px; color: #fff; margin-top: 3px; }
+
+.btn {
+    border: none; background: var(--red); color: #fff; border-radius: 4px;
+    padding: 11px 16px; font-weight: 700; font-size: 11px; letter-spacing: .6px;
+    text-transform: uppercase; cursor: pointer; transition: .2s;
+}
+.btn:hover { background: var(--red-dark); }
+
+/* SEÇÕES */
+.section-heading {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: 30px 0 14px; gap: 10px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--graphite);
+}
+.section-heading h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; }
+.section-heading span { font-size: 11px; color: var(--muted); }
+
+/* KPI */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.kpi {
+    background: var(--white); border: 1px solid var(--border); border-top: 3px solid var(--graphite);
+    border-radius: 4px; padding: 18px; box-shadow: var(--shadow);
+}
+.kpi-top { display: flex; justify-content: space-between; align-items: center; }
+.kpi-label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+.kpi-icon {
+    width: 32px; height: 32px; background: var(--steel-light); color: var(--graphite);
+    border-radius: 4px; display: grid; place-items: center; font-size: 15px;
+}
+.kpi-value { font-size: 30px; font-weight: 700; margin-top: 12px; font-family: var(--mono); letter-spacing: -1px; }
+.kpi-foot { color: var(--muted); font-size: 11px; margin-top: 6px; line-height: 1.4; }
+
+/* CARTÕES DE MÁQUINA */
+.machine-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.machine {
+    background: var(--white); border: 1px solid var(--border); border-top: 3px solid var(--graphite);
+    border-radius: 4px; padding: 16px; box-shadow: var(--shadow); cursor: pointer; transition: .2s;
+}
+.machine:hover, .machine.selected { border-color: var(--graphite); box-shadow: 0 4px 14px rgba(20, 22, 25, .12); }
+.machine.selected { border-top-color: var(--red); }
+.machine-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.machine-name { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; font-family: var(--mono); }
+.status {
+    font-size: 10px; padding: 4px 8px; border-radius: 3px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px; background: #E3F3EC; color: var(--ok); white-space: nowrap;
+}
+.status.warning { color: #8A5A00; background: #FDF1D6; }
+.status.off { color: #4B5157; background: var(--steel-light); }
+.status.danger { color: var(--red); background: #FDE5E5; }
+.machine-metrics {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;
+    padding-top: 12px; border-top: 1px dashed var(--border);
+}
+.metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.metric-value { font-size: 17px; font-weight: 700; margin-top: 4px; font-family: var(--mono); }
+.cond { font-size: 11px; font-weight: 700; margin-top: 12px; line-height: 1.4; padding: 6px 8px; border-radius: 3px; background: #F5F6F7; }
+.cond.ok { color: var(--ok); background: #E8F5EE; }
+.cond.warn { color: #8A5A00; background: #FDF1D6; }
+.cond.bad { color: var(--red); background: #FDE5E5; }
+.cond.na { color: var(--muted); }
+.machine-footer {
+    border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px;
+    display: flex; justify-content: space-between; color: var(--muted);
+    font-size: 10px; gap: 8px; font-family: var(--mono);
+}
+
+/* PAINÉIS */
+.panel { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 20px; box-shadow: var(--shadow); min-width: 0; }
+.analytics-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+.panel-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.panel-header h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+.panel-header p { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.panel-tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.chart-note { color: var(--muted); font-size: 10px; margin-top: 10px; line-height: 1.5; }
+.chart-note code { font-family: var(--mono); background: #F0F2F4; padding: 1px 4px; border-radius: 3px; }
+
+select, input {
+    border: 1px solid var(--border); border-radius: 3px; background: #fff; padding: 8px 10px;
+    color: var(--text); font-size: 11px; outline: none; max-width: 100%;
+}
+select:focus, input:focus { border-color: var(--graphite); }
+
+.chart-wrap { height: 300px; width: 100%; position: relative; }
+.chart-wrap.menor { height: 280px; }
+canvas { width: 100%; height: 100%; display: block; }
+
+.tooltip {
+    position: absolute; display: none; pointer-events: none; background: var(--graphite); color: #fff;
+    font-size: 11px; padding: 6px 9px; border-radius: 3px; white-space: nowrap; line-height: 1.45; z-index: 5;
+}
+
+/* DISPONIBILIDADE */
+.disp-row { margin-bottom: 16px; }
+.disp-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 7px; }
+.bar { height: 12px; border-radius: 2px; overflow: hidden; display: flex; background: var(--steel-light); }
+.disp-foot { font-size: 10px; color: var(--muted); margin-top: 6px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 10px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+/* PILLS */
+.pill {
+    font-size: 10px; padding: 3px 8px; border-radius: 3px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px; display: inline-block; white-space: nowrap;
+}
+.pill.ok { background: #E3F3EC; color: var(--ok); }
+.pill.warn { background: #FDF1D6; color: #8A5A00; }
+.pill.bad { background: #FDE5E5; color: var(--red); }
+.pill.na { background: var(--steel-light); color: #4B5157; }
+
+/* TABELAS */
+.table-panel { margin-top: 16px; }
+.table-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.table-container { width: 100%; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 11px; }
+th {
+    color: #fff; background: var(--graphite); text-align: left; padding: 10px 12px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+}
+td { padding: 11px 12px; border-bottom: 1px solid #EEF0F2; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #F7F8F9; }
+td small { color: var(--muted); font-size: 10px; }
+.machine-tag { color: var(--graphite); font-weight: 700; font-family: var(--mono); }
+.empty { padding: 28px; text-align: center; color: var(--muted); font-size: 12px; }
+
+.footer { padding: 24px 0 8px; text-align: center; color: var(--na); font-size: 10px; text-transform: uppercase; letter-spacing: .6px; }
+
+/* RESPONSIVO */
+@media (max-width: 1250px) { .analytics-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .machine-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 700px) {
+    .main { padding: 110px 14px 22px; }
+    .menu-item { padding: 10px 10px; font-size: 10px; letter-spacing: .3px; }
+    .menu-item .ico { display: none; }
+    .kpis { grid-template-columns: repeat(2, 1fr); gap: 9px; }
+    .kpi { padding: 12px; }
+    .kpi-value { font-size: 22px; }
+    .machine-grid { grid-template-columns: 1fr; }
+    .panel { padding: 14px; }
+    .chart-wrap { height: 240px; }
+    .hero { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- MENU CENTRAL FLUTUANTE -->
+<nav class="nav-central" aria-label="Menu principal">
+    <div class="menu-item active" data-alvo="topo"><span class="ico">▦</span>Dashboard</div>
+    <div class="menu-item" data-alvo="secMaquinas"><span class="ico">◉</span>Máquinas</div>
+    <div class="menu-item" data-alvo="secMonitoramento"><span class="ico">⌁</span>Monitoramento</div>
+    <div class="menu-item" data-alvo="secHistorico"><span class="ico">▤</span>Histórico</div>
+</nav>
+
+<div class="app">
+<main class="main" id="topo">
+
+    <header class="hero">
+        <div>
+            <h1>Monitoramento industrial</h1>
+            <p>Condição, disponibilidade e desempenho das máquinas em tempo real.</p>
+        </div>
+        <div class="hero-status">
+            <div class="connection">
+                <span class="dot off" id="connectionDot"></span>
+                <span id="connectionText">Conectando...</span>
+            </div>
+            <div class="updated">Última coleta<strong id="lastUpdate">--:--:--</strong></div>
+            <button class="btn" onclick="baixarCSV()">↓ Exportar CSV</button>
+        </div>
+    </header>
+
+    <!-- VISÃO GERAL -->
+    <div class="section-heading">
+        <h2>Visão geral</h2>
+        <span>Estado atual e disponibilidade no histórico carregado</span>
+    </div>
+
+    <section class="kpis">
+        <div class="kpi">
+            <div class="kpi-top">
+                <span class="kpi-label">Leituras armazenadas</span>
+                <div class="kpi-icon">▤</div>
+            </div>
+            <div class="kpi-value" id="totalLeituras">0</div>
+            <div class="kpi-foot">Registros no banco de dados</div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-top">
+                <span class="kpi-label">Máquinas monitoradas</span>
+                <div class="kpi-icon">⚙</div>
+            </div>
+            <div class="kpi-value" id="totalMaquinas">0</div>
+            <div class="kpi-foot">Equipamentos com leituras</div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-top">
+                <span class="kpi-label">Disponibilidade</span>
+                <div class="kpi-icon">✓</div>
+            </div>
+            <div class="kpi-value" id="disponibilidade">--</div>
+            <div class="kpi-foot">Leituras com status OPERANDO</div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-top">
+                <span class="kpi-label">Máquinas em alerta</span>
+                <div class="kpi-icon">!</div>
+            </div>
+            <div class="kpi-value" id="emAlerta">0</div>
+            <div class="kpi-foot">Desvio da linha de base, limite ou status não operacional</div>
+        </div>
+    </section>
+
+    <!-- CARTÕES -->
+    <div class="section-heading" id="secMaquinas">
+        <h2>Situação das máquinas</h2>
+        <span id="machineCount">0 equipamentos</span>
+    </div>
+
+    <section class="machine-grid" id="machineGrid">
+        <div class="panel empty">Aguardando dados da API...</div>
+    </section>
+
+    <!-- ANÁLISE DE DESEMPENHO -->
+    <div class="section-heading" id="secMonitoramento">
+        <h2>Análise de desempenho</h2>
+        <span>Séries temporais com faixa de referência</span>
+    </div>
+
+    <section class="analytics-grid">
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h3 id="serieTitulo">Série temporal</h3>
+                    <p id="serieResumo">—</p>
+                </div>
+                <div class="panel-tools">
+                    <select id="machineSelect"></select>
+                    <select id="varSelect"></select>
+                    <select id="janelaSelect">
+                        <option value="100">Últimas 100</option>
+                        <option value="500" selected>Últimas 500</option>
+                        <option value="0">Todo o histórico</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="serieChart"></canvas>
+                <div class="tooltip" id="tooltipSerie"></div>
+            </div>
+            <p class="chart-note">
+                Faixa verde: média ± 2 desvios da linha de base (primeiras 100 leituras da máquina).
+                Linhas tracejadas: linha de base e limites técnicos, quando configurados.
+                Trechos interrompidos indicam lacunas de coleta.
+            </p>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h3>Disponibilidade por máquina</h3>
+                    <p>Distribuição dos status no histórico carregado</p>
+                </div>
+            </div>
+            <div id="disponibilidadeBars"></div>
+        </div>
+    </section>
+
+    <section class="analytics-grid" style="margin-top:17px">
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h3>Comparação entre máquinas</h3>
+                    <p id="boxResumo">Distribuição da variável em cada equipamento</p>
+                </div>
+                <div class="panel-tools">
+                    <select id="boxVarSelect"></select>
+                </div>
+            </div>
+            <div class="chart-wrap menor">
+                <canvas id="boxChart"></canvas>
+            </div>
+            <p class="chart-note">
+                Caixa = 50% central das leituras (Q1 a Q3), linha = mediana, bigodes = limite de 1,5 × IQR.
+                Pontos vermelhos são possíveis atípicos e não indicam falha por si só.
+            </p>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h3>Resumo operacional</h3>
+                    <p>Distribuição dos equipamentos</p>
+                </div>
+            </div>
+            <div id="operationalSummary"></div>
+        </div>
+    </section>
+
+    <!-- INDICADORES ESTATÍSTICOS -->
+    <div class="section-heading">
+        <h2>Indicadores estatísticos</h2>
+        <span>Por máquina e variável</span>
+    </div>
+
+    <section class="panel">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Máquina</th>
+                        <th>Variável</th>
+                        <th>Último</th>
+                        <th>Média</th>
+                        <th>Mínimo</th>
+                        <th>Máximo</th>
+                        <th>Desvio</th>
+                        <th>Linha de base</th>
+                        <th>Z atual</th>
+                        <th>Situação</th>
+                    </tr>
+                </thead>
+                <tbody id="statsBody"><tr><td colspan="10" class="empty">Aguardando histórico...</td></tr></tbody>
+            </table>
+        </div>
+        <p class="chart-note">
+            Linha de base: média ± desvio padrão das primeiras 100 leituras de cada máquina.
+            Z atual: quantos desvios o último valor está da linha de base.
+            Desgaste é tratado como tendência, pois cresce com o tempo e não tem linha de base estável.
+            Para classificar pelo critério do processo, preencha <code>LIMITES_TECNICOS</code> no script.
+        </p>
+    </section>
+
+    <!-- PRODUÇÃO E QUALIDADE -->
+    <div class="section-heading">
+        <h2>Produção e qualidade</h2>
+        <span>Contadores acumulados, ritmo e taxas</span>
+    </div>
+
+    <section class="panel">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Máquina</th>
+                        <th>Produção acumulada</th>
+                        <th>Ritmo atual (/h)</th>
+                        <th>Defeitos / rejeitados</th>
+                        <th>Taxa de defeito</th>
+                        <th>Falhas</th>
+                        <th>Paradas</th>
+                        <th>Desgaste</th>
+                        <th>Disponibilidade</th>
+                    </tr>
+                </thead>
+                <tbody id="indicadoresBody"><tr><td colspan="9" class="empty">Aguardando histórico...</td></tr></tbody>
+            </table>
+        </div>
+        <p class="chart-note">
+            Os contadores da API são acumulados desde o início da coleta. O ritmo é calculado sobre as últimas 20 leituras
+            e considera apenas aumentos (reinícios do contador são ignorados).
+        </p>
+    </section>
+
+    <!-- EVENTOS -->
+    <div class="section-heading">
+        <h2>Eventos recentes</h2>
+        <span>Mudanças de status e desvios relevantes</span>
+    </div>
+
+    <section class="panel">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data / hora</th>
+                        <th>Máquina</th>
+                        <th>Status</th>
+                        <th>Variáveis fora do esperado</th>
+                    </tr>
+                </thead>
+                <tbody id="eventosBody"><tr><td colspan="4" class="empty">Aguardando histórico...</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ÚLTIMAS LEITURAS -->
+    <section class="panel table-panel" id="secHistorico">
+        <div class="panel-header">
+            <div>
+                <h3>Últimas leituras</h3>
+                <p>Dados recebidos pela API</p>
+            </div>
+            <div class="table-tools">
+                <input id="searchInput" placeholder="Buscar máquina..." oninput="renderTabela()">
+                <select id="statusFilter" onchange="renderTabela()">
+                    <option value="">Todos os status</option>
+                    <option value="operacional">Operacional</option>
+                    <option value="alerta">Alerta / parada / manutenção</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data / hora</th>
+                        <th>Máquina</th>
+                        <th>Temperatura</th>
+                        <th>Vibração</th>
+                        <th>Pressão</th>
+                        <th>Produção (acum.)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="readingsTable">
+                    <tr><td colspan="7" class="empty">Aguardando leituras...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="footer">
+        MONITORAMENTO INDUSTRIAL · Atualização automática
+    </div>
+
+</main>
+</div>
+
+<script>
+
+/* ============================================================
+   CONFIGURAÇÃO
+   ============================================================ */
+
+const API = "";                       // servido pelo coletor.py na porta 5001
+const COMM = 15000;                   // sem leitura nova por mais de 15 s = sem comunicação
+const INTERVALO_ESTADO = 3000;
+const INTERVALO_HISTORICO = 10000;
+const LIMITE_HISTORICO = 1500;        // últimas leituras por máquina
+const BASE_N = 100;                   // primeiras leituras de cada máquina = linha de base
+const JANELA_RITMO = 20;              // leituras usadas para calcular o ritmo (/h)
+const LACUNA_MS = 5 * 60 * 1000;      // intervalos maiores que 5 min quebram a linha do gráfico
+
+/* Limites técnicos reais (vindos do fabricante ou do processo).
+   Exemplo:
+   const LIMITES_TECNICOS = {
+       COMPRESSOR_01: { temperatura: { min: 60, max: 75 } },
+       PRENSA_HIDRAULICA_01: { pressao: { max: 145 } }
+   };
+   Enquanto estiver vazio, a classificação usa somente a linha de base estatística. */
+const LIMITES_TECNICOS = {};
+
+const ACUMULADOS = ["producao", "ciclos", "falhas", "defeitos", "rejeitados", "paradas"];
+const IGNORADOS = ["horas_operacao"]; // unidade ambígua na API; fora dos gráficos
+const TENDENCIA = ["desgaste"];      // cresce com o tempo: não há linha de base estável, só tendência
+const PRIORIDADE = ["temperatura", "vibracao", "pressao", "velocidade", "rotacao",
+                    "carga", "consumo_kw", "desgaste", "producao", "ciclos"];
+const CORES_STATUS = { OPERANDO: "#1E8A5A", MANUTENCAO: "#E09A00", PARADA: "#ED0007", OUTROS: "#8A9097" };
+
+const ROTULOS = {
+    temperatura: { nome: "Temperatura", un: "°C", casas: 1 },
+    vibracao:    { nome: "Vibração",    un: "",   casas: 2 },
+    pressao:     { nome: "Pressão",     un: "",   casas: 2 },
+    velocidade:  { nome: "Velocidade",  un: "",   casas: 2 },
+    rotacao:     { nome: "Rotação",     un: "rpm", casas: 0 },
+    carga:       { nome: "Carga",       un: "",   casas: 1 },
+    consumo_kw:  { nome: "Consumo",     un: "kW", casas: 2 },
+    desgaste:    { nome: "Desgaste",    un: "",   casas: 2 },
+    producao:    { nome: "Produção",    un: "",   casas: 0 },
+    ciclos:      { nome: "Ciclos",      un: "",   casas: 0 },
+    falhas:      { nome: "Falhas",      un: "",   casas: 0 },
+    defeitos:    { nome: "Defeitos",    un: "",   casas: 0 },
+    rejeitados:  { nome: "Rejeitados",  un: "",   casas: 0 },
+    paradas:     { nome: "Paradas",     un: "",   casas: 0 }
+};
+
+/* ============================================================
+   ESTADO
+   ============================================================ */
+
+let dadosAtuais = null;   // resposta de /api/estado
+let modelo = [];          // máquinas processadas a partir de /api/historico
+let seen = {};            // controle de comunicação por máquina
+let chaveSelect = "";
+let chaveBox = "";
+let carregandoEstado = false;
+let carregandoHist = false;
+
+/* ============================================================
+   UTILITÁRIOS
+   ============================================================ */
+
+const norm = s => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+
+function numero(v, casas = 1) {
+    if (v === null || v === undefined || v === "") return "--";
+    const n = Number(v);
+    return Number.isFinite(n)
+        ? n.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas })
+        : String(v);
+}
+
+function escapar(v) {
+    return String(v ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[c]);
+}
+
+function dataHora(t) {
+    const d = Date.parse(t);
+    return Number.isNaN(d) ? String(t ?? "--") : new Date(d).toLocaleString("pt-BR");
+}
+
+function infoCampo(c) {
+    return ROTULOS[c] || { nome: c.replace(/_/g, " "), un: "", casas: 2 };
+}
+
+function fmtVal(c, v) {
+    const info = infoCampo(c);
+    const txt = numero(v, info.casas);
+    return info.un && txt !== "--" ? `${txt} ${info.un}` : txt;
+}
+
+function fmtEixo(t, span) {
+    const d = new Date(t);
+    return span > 86400000
+        ? d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+        : d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+/* ============================================================
+   STATUS E COMUNICAÇÃO
+   ============================================================ */
+
+function statusClasse(status) {
+    const s = norm(status);
+    if (/ERRO|FALHA|CRITIC|PARAD/.test(s)) return "danger";
+    if (/ALERTA|ATENC|MANUT/.test(s)) return "warning";
+    return "";
+}
+
+function statusOperacional(status) {
+    return /^(OPERANDO|OPERACIONAL|ATIVO|NORMAL|ONLINE|OK)$/.test(norm(status));
+}
+
+function semComunicacao(m) {
+    if (m.qtd === null || m.qtd === undefined) return false;
+    const s = seen[m.maquina];
+    return !!s && (Date.now() - s.t) > COMM;
+}
+
+function categoria(m) {
+    if (semComunicacao(m)) return "off";
+    if (statusOperacional(m.status)) return "ok";
+    const c = statusClasse(m.status);
+    if (c === "danger") return "bad";
+    if (c === "warning") return "warn";
+    return "other";
+}
+
+/* ============================================================
+   ESTATÍSTICA
+   ============================================================ */
+
+function media(v) { return v.reduce((s, x) => s + x, 0) / v.length; }
+
+function percentil(ord, p) {
+    const pos = (ord.length - 1) * p, b = Math.floor(pos), r = pos - b;
+    return ord[b + 1] === undefined ? ord[b] : ord[b] + r * (ord[b + 1] - ord[b]);
+}
+
+function estatisticas(valores) {
+    if (!valores.length) return null;
+    const o = [...valores].sort((a, b) => a - b);
+    const mu = media(o);
+    const dp = Math.sqrt(o.reduce((s, x) => s + (x - mu) ** 2, 0) / o.length);
+    return {
+        min: o[0], max: o[o.length - 1], media: mu,
+        mediana: percentil(o, .5), q1: percentil(o, .25), q3: percentil(o, .75),
+        desvio: dp, n: o.length
+    };
+}
+
+function estatBase(vals) {
+    if (vals.length < 2) return null;
+    const mu = media(vals);
+    const sd = Math.sqrt(vals.reduce((s, x) => s + (x - mu) ** 2, 0) / (vals.length - 1));
+    return { mu, sd };
+}
+
+/* ============================================================
+   MODELO DE DADOS
+   Cada máquina: linhas com timestamp (ms) e valores numéricos,
+   campos medidos (instantâneos) e acumulados (contadores),
+   e linha de base por variável medida.
+   ============================================================ */
+
+function construirModelo(dados) {
+    return dados.map(m => {
+        const linhas = (m.linhas || []).map(l => {
+            const v = {};
+            for (const k of Object.keys(l)) {
+                if (k === "rowid" || IGNORADOS.includes(k)) continue;
+                if (typeof l[k] === "number") v[k] = l[k];
+            }
+            return { t: Date.parse(l.timestamp), status: String(l.status || ""), v };
+        }).filter(l => Number.isFinite(l.t)).sort((a, b) => a.t - b.t);
+
+        const campos = [...new Set(linhas.flatMap(l => Object.keys(l.v)))];
+        const medidas = campos.filter(c => !ACUMULADOS.includes(c));
+        const acumulados = campos.filter(c => ACUMULADOS.includes(c));
+
+        const base = {};
+        medidas.forEach(c => {
+            if (TENDENCIA.includes(c)) { base[c] = null; return; }
+            const vals = linhas.slice(0, BASE_N).map(l => l.v[c]).filter(x => typeof x === "number");
+            base[c] = estatBase(vals);
+        });
+
+        return { nome: m.maquina || "(sem nome)", tipo: m.tipo || "", linhas, campos, medidas, acumulados, base };
+    }).filter(m => m.linhas.length);
+}
+
+function modeloPorNome(nome) {
+    return modelo.find(m => m.nome === nome) || null;
+}
+
+function serieCampo(mm, c) {
+    return mm.linhas.filter(l => typeof l.v[c] === "number").map(l => ({ t: l.t, v: l.v[c] }));
+}
+
+function ultimoValor(mm, c) {
+    for (let i = mm.linhas.length - 1; i >= 0; i--) {
+        if (typeof mm.linhas[i].v[c] === "number") return mm.linhas[i].v[c];
+    }
+    return null;
+}
+
+/* ritmo (taxa por hora) de um contador acumulado, usando só aumentos */
+function ritmo(pontos) {
+    const saida = [];
+    for (let i = JANELA_RITMO; i < pontos.length; i++) {
+        let delta = 0;
+        for (let j = i - JANELA_RITMO + 1; j <= i; j++) {
+            const d = pontos[j].v - pontos[j - 1].v;
+            if (d > 0) delta += d;
+        }
+        const dtMs = pontos[i].t - pontos[i - JANELA_RITMO].t;
+        if (dtMs > 0 && dtMs <= LACUNA_MS) {
+            saida.push({ t: pontos[i].t, v: delta / (dtMs / 3600000) });
+        }
+    }
+    return saida;
+}
+
+/* classificação de um valor: limite técnico tem prioridade; senão, desvio da linha de base */
+function classificar(maquina, campo, valor, base) {
+    const lim = (LIMITES_TECNICOS[maquina] || {})[campo];
+    if (lim && ((lim.min != null && valor < lim.min) || (lim.max != null && valor > lim.max))) {
+        return { nivel: "bad", z: null, motivo: "fora do limite técnico" };
+    }
+    if (!base || !base.sd) return { nivel: "na", z: null, motivo: null };
+    const z = (valor - base.mu) / base.sd;
+    const az = Math.abs(z);
+    return { nivel: az > 3 ? "bad" : az > 2 ? "warn" : "ok", z, motivo: null };
+}
+
+/* pior condição entre as variáveis medidas da última leitura */
+function condicao(mm) {
+    const ordem = { na: 0, ok: 1, warn: 2, bad: 3 };
+    let pior = { nivel: "na", campo: null, z: null, motivo: null };
+    mm.medidas.forEach(c => {
+        const v = ultimoValor(mm, c);
+        if (v === null) return;
+        const r = classificar(mm.nome, c, v, mm.base[c]);
+        if (ordem[r.nivel] > ordem[pior.nivel]) {
+            pior = { nivel: r.nivel, campo: c, z: r.z, motivo: r.motivo };
+        }
+    });
+    return pior;
+}
+
+function textoCondicao(c) {
+    if (c.nivel === "na") return { cls: "na", txt: "Sem linha de base suficiente" };
+    if (c.nivel === "ok") return { cls: "ok", txt: "Dentro da faixa esperada" };
+    const z = c.z === null ? "" : ` (${c.z > 0 ? "+" : ""}${numero(c.z, 1)}σ)`;
+    const motivo = c.motivo ? ` — ${c.motivo}` : "";
+    const prefixo = c.nivel === "bad" ? "Crítico" : "Atenção";
+    return { cls: c.nivel === "bad" ? "bad" : "warn", txt: `${prefixo}: ${infoCampo(c.campo).nome}${z}${motivo}` };
+}
+
+function pillNivel(n) {
+    const r = { ok: "Normal", warn: "Atenção", bad: "Crítico", na: "Sem base" }[n] || "—";
+    return `<span class="pill ${n}">${r}</span>`;
+}
+
+/* eventos: mudanças de status ou de variáveis fora do esperado */
+function eventos() {
+    const lista = [];
+    modelo.forEach(m => {
+        let anterior = null;
+        m.linhas.forEach(l => {
+            const flags = m.medidas
+                .filter(c => typeof l.v[c] === "number")
+                .map(c => ({ c, r: classificar(m.nome, c, l.v[c], m.base[c]) }))
+                .filter(x => x.r.nivel === "bad");
+            const chave = l.status + "|" + flags.map(f => f.c).join(",");
+            const relevante = (l.status && l.status !== "OPERANDO") || flags.length > 0;
+            if (chave !== anterior && relevante) {
+                lista.push({ t: l.t, maquina: m.nome, status: l.status, flags });
+            }
+            anterior = chave;
+        });
+    });
+    return lista.sort((a, b) => b.t - a.t).slice(0, 20);
+}
+
+/* ============================================================
+   CANVAS
+   ============================================================ */
+
+function ajustarCanvas(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    return { ctx, w: rect.width, h: rect.height };
+}
+
+function mensagem(ctx, w, h, texto) {
+    ctx.fillStyle = "#8A9097";
+    ctx.font = "12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(texto, w / 2, h / 2);
+}
+
+function desenharLinhas(canvas, cfg) {
+    const setup = ajustarCanvas(canvas);
+    if (!setup) return;
+    const { ctx, w, h } = setup;
+    const pontos = cfg.pontos || [];
+
+    if (!pontos.length) {
+        canvas._hit = null;
+        mensagem(ctx, w, h, "Sem dados para esta variável");
+        return;
+    }
+
+    const L = 56, R = 14, T = 16, B = 28;
+    const cw = w - L - R, ch = h - T - B;
+    const tMin = pontos[0].t, tMax = pontos[pontos.length - 1].t;
+
+    let vMin = Infinity, vMax = -Infinity;
+    pontos.forEach(p => { vMin = Math.min(vMin, p.v); vMax = Math.max(vMax, p.v); });
+    (cfg.bandas || []).forEach(b => { vMin = Math.min(vMin, b.y1); vMax = Math.max(vMax, b.y2); });
+    (cfg.refs || []).forEach(r => { vMin = Math.min(vMin, r.v); vMax = Math.max(vMax, r.v); });
+    if (vMin === vMax) { vMin -= 1; vMax += 1; }
+    const mg = (vMax - vMin) * .08;
+    vMin -= mg; vMax += mg;
+
+    const X = t => tMax === tMin ? L + cw / 2 : L + (t - tMin) / (tMax - tMin) * cw;
+    const Y = v => T + (vMax - v) / (vMax - vMin) * ch;
+
+    /* grade e eixo Y */
+    ctx.font = "10px Arial";
+    ctx.strokeStyle = "#E4E7EA";
+    ctx.fillStyle = "#8A9097";
+    ctx.lineWidth = 1;
+    ctx.textAlign = "right";
+    for (let i = 0; i <= 4; i++) {
+        const v = vMax - (vMax - vMin) * i / 4, y = Y(v);
+        ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke();
+        ctx.fillText(cfg.fmt(v), L - 7, y + 3);
+    }
+
+    /* eixo X com horário real */
+    for (let i = 0; i <= 4; i++) {
+        const t = tMin + (tMax - tMin) * i / 4;
+        ctx.textAlign = i === 0 ? "left" : i === 4 ? "right" : "center";
+        ctx.fillText(fmtEixo(t, tMax - tMin), X(t), h - 8);
+    }
+
+    /* faixa de referência */
+    (cfg.bandas || []).forEach(b => {
+        ctx.fillStyle = b.cor;
+        ctx.fillRect(L, Y(b.y2), cw, Y(b.y1) - Y(b.y2));
+    });
+
+    /* linhas de referência */
+    (cfg.refs || []).forEach(r => {
+        ctx.save();
+        ctx.setLineDash(r.tracejado ? [5, 4] : []);
+        ctx.strokeStyle = r.cor;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(L, Y(r.v)); ctx.lineTo(w - R, Y(r.v)); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = r.cor;
+        ctx.textAlign = "left";
+        ctx.font = "9px Arial";
+        ctx.fillText(`${r.rotulo}: ${cfg.fmt(r.v)}`, L + 4, Y(r.v) - 3);
+        ctx.font = "10px Arial";
+    });
+
+    /* série, com quebra em lacunas de coleta */
+    const cor = cfg.cor || "#26282B";
+    ctx.strokeStyle = cor;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    pontos.forEach((p, i) => {
+        const x = X(p.t), y = Y(p.v);
+        if (i === 0 || (cfg.quebra && p.t - pontos[i - 1].t > cfg.quebra)) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    const u = pontos[pontos.length - 1];
+    ctx.fillStyle = cor;
+    ctx.beginPath(); ctx.arc(X(u.t), Y(u.v), 3.5, 0, Math.PI * 2); ctx.fill();
+
+    canvas._hit = {
+        w, fmt: cfg.fmt, un: cfg.un || "",
+        pontos: pontos.map(p => ({ x: X(p.t), y: Y(p.v), t: p.t, v: p.v }))
+    };
+}
+
+function desenharBoxplot(canvas, grupos, info) {
+    const setup = ajustarCanvas(canvas);
+    if (!setup) return;
+    const { ctx, w, h } = setup;
+    if (!grupos.length) {
+        mensagem(ctx, w, h, "Nenhuma máquina possui esta variável");
+        return;
+    }
+
+    const todos = grupos.flatMap(g => g.vals);
+    let min = Math.min(...todos), max = Math.max(...todos);
+    if (min === max) { min -= 1; max += 1; }
+    const mg = (max - min) * .12;
+    min -= mg; max += mg;
+
+    const L = 56, R = 14, T = 14, B = 44, ch = h - T - B;
+    const Y = v => T + (max - v) / (max - min) * ch;
+
+    ctx.font = "10px Arial";
+    ctx.strokeStyle = "#E4E7EA";
+    ctx.fillStyle = "#8A9097";
+    ctx.textAlign = "right";
+    for (let i = 0; i <= 4; i++) {
+        const v = max - (max - min) * i / 4, y = Y(v);
+        ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke();
+        ctx.fillText(numero(v, info.casas), L - 7, y + 3);
+    }
+
+    const passo = (w - L - R) / grupos.length;
+    grupos.forEach((g, i) => {
+        const s = g.st;
+        const x = L + passo * (i + .5), bw = Math.min(40, passo * .45);
+        const iqr = s.q3 - s.q1;
+        const infL = s.q1 - 1.5 * iqr, supL = s.q3 + 1.5 * iqr;
+        const dentro = g.vals.filter(v => v >= infL && v <= supL);
+        const bMin = dentro.length ? Math.min(...dentro) : s.min;
+        const bMax = dentro.length ? Math.max(...dentro) : s.max;
+        const atipicos = g.vals.filter(v => v < infL || v > supL);
+
+        ctx.strokeStyle = "#26282B";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x, Y(bMin)); ctx.lineTo(x, Y(bMax)); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - bw * .3, Y(bMin)); ctx.lineTo(x + bw * .3, Y(bMin));
+        ctx.moveTo(x - bw * .3, Y(bMax)); ctx.lineTo(x + bw * .3, Y(bMax));
+        ctx.stroke();
+
+        const hCaixa = Math.max(1, Y(s.q1) - Y(s.q3));
+        ctx.fillStyle = "rgba(38,40,43,.12)";
+        ctx.fillRect(x - bw / 2, Y(s.q3), bw, hCaixa);
+        ctx.strokeRect(x - bw / 2, Y(s.q3), bw, hCaixa);
+        ctx.beginPath(); ctx.moveTo(x - bw / 2, Y(s.mediana)); ctx.lineTo(x + bw / 2, Y(s.mediana)); ctx.stroke();
+
+        ctx.fillStyle = "#ED0007";
+        atipicos.forEach(v => { ctx.beginPath(); ctx.arc(x, Y(v), 2.6, 0, Math.PI * 2); ctx.fill(); });
+
+        ctx.fillStyle = "#4B5157";
+        ctx.font = "9px Arial";
+        ctx.textAlign = "center";
+        const nome = g.nome.length > 16 ? g.nome.slice(0, 15) + "…" : g.nome;
+        ctx.fillText(nome, x, h - 26);
+        ctx.fillText(`n=${s.n} · atípicos=${atipicos.length}`, x, h - 12);
+        ctx.font = "10px Arial";
+    });
+}
+
+/* ============================================================
+   INTERAÇÃO COM O GRÁFICO (tooltip)
+   ============================================================ */
+
+function ativarTooltip(canvas, tip) {
+    canvas.addEventListener("mousemove", ev => {
+        const hit = canvas._hit;
+        if (!hit || !hit.pontos.length) { tip.style.display = "none"; return; }
+        const x = ev.clientX - canvas.getBoundingClientRect().left;
+        let lo = 0, hi = hit.pontos.length - 1;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (hit.pontos[mid].x < x) lo = mid + 1; else hi = mid;
+        }
+        let p = hit.pontos[lo];
+        if (lo > 0 && Math.abs(hit.pontos[lo - 1].x - x) < Math.abs(p.x - x)) p = hit.pontos[lo - 1];
+        tip.style.display = "block";
+        tip.style.left = Math.min(p.x + 12, hit.w - 170) + "px";
+        tip.style.top = Math.max(p.y - 46, 4) + "px";
+        tip.innerHTML = `<b>${escapar(hit.fmt(p.v))}${hit.un ? " " + escapar(hit.un) : ""}</b><br>` +
+                        escapar(new Date(p.t).toLocaleString("pt-BR"));
+    });
+    canvas.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+}
+
+/* ============================================================
+   RENDERIZAÇÃO
+   ============================================================ */
+
+function renderKPIs() {
+    if (!dadosAtuais) return;
+    const maquinas = dadosAtuais.maquinas || [];
+    const total = Number(dadosAtuais.total || 0);
+
+    document.getElementById("totalLeituras").textContent = total.toLocaleString("pt-BR");
+    document.getElementById("totalMaquinas").textContent = maquinas.length;
+
+    let ops = 0, tot = 0;
+    modelo.forEach(m => m.linhas.forEach(l => { tot++; if (l.status === "OPERANDO") ops++; }));
+    document.getElementById("disponibilidade").textContent = tot ? numero(ops / tot * 100, 1) + "%" : "--";
+
+    const emAlerta = maquinas.filter(m => {
+        const mm = modeloPorNome(m.maquina);
+        const nivel = mm ? condicao(mm).nivel : "na";
+        return nivel === "warn" || nivel === "bad" || (m.status && !statusOperacional(m.status));
+    }).length;
+    document.getElementById("emAlerta").textContent = emAlerta;
+
+    const conectado = !!dadosAtuais.coletor?.ok;
+    document.getElementById("connectionDot").className = conectado ? "dot" : "dot off";
+    document.getElementById("connectionText").textContent = conectado ? "Coletor conectado" : "Coletor desconectado";
+    document.getElementById("lastUpdate").textContent = dadosAtuais.coletor?.ultimo_sucesso || "--:--:--";
+}
+
+function renderMaquinas() {
+    if (!dadosAtuais) return;
+    const grid = document.getElementById("machineGrid");
+    const maquinas = dadosAtuais.maquinas || [];
+    document.getElementById("machineCount").textContent = `${maquinas.length} equipamentos`;
+
+    if (!maquinas.length) {
+        grid.innerHTML = '<div class="panel empty">Nenhuma máquina encontrada.</div>';
+        return;
+    }
+
+    const selecionada = document.getElementById("machineSelect").value;
+
+    grid.innerHTML = maquinas.map(m => {
+        const off = semComunicacao(m);
+        const status = off ? "Sem comunicação" : (m.status || "Sem status");
+        const classe = off ? "off" : statusClasse(m.status);
+        const mm = modeloPorNome(m.maquina);
+
+        let metricas = '<div class="metric-label" style="grid-column:1/-1">Aguardando histórico...</div>';
+        let cond = "";
+        let leituras = "";
+        if (mm) {
+            const campos = [
+                ...PRIORIDADE.filter(c => mm.campos.includes(c)),
+                ...mm.campos.filter(c => !PRIORIDADE.includes(c))
+            ].slice(0, 4);
+            metricas = campos.map(c => `
+                <div>
+                    <div class="metric-label">${escapar(infoCampo(c).nome)}</div>
+                    <div class="metric-value">${escapar(fmtVal(c, ultimoValor(mm, c)))}</div>
+                </div>`).join("");
+            const t = textoCondicao(condicao(mm));
+            cond = `<div class="cond ${t.cls}">${escapar(t.txt)}</div>`;
+            leituras = `${numero(mm.linhas.length, 0)} leituras no histórico`;
+        }
+
+        return `
+        <div class="machine ${m.maquina === selecionada ? "selected" : ""}"
+             data-nome="${escapar(m.maquina)}"
+             onclick="selecionarMaquina(this.dataset.nome)">
+            <div class="machine-head">
+                <div class="machine-name">⚙ ${escapar(m.maquina)}</div>
+                <span class="status ${classe}">${escapar(status)}</span>
+            </div>
+            <div class="machine-metrics">${metricas}</div>
+            ${cond}
+            <div class="machine-footer">
+                <span>Última: ${escapar(dataHora(m.timestamp))}</span>
+                <span>${escapar(leituras)}</span>
+            </div>
+        </div>`;
+    }).join("");
+}
+
+function renderSeletores() {
+    /* máquinas */
+    const sel = document.getElementById("machineSelect");
+    const nomes = modelo.map(m => m.nome).sort();
+    const chave = nomes.join("|");
+    if (chave !== chaveSelect) {
+        const atual = sel.value;
+        sel.innerHTML = nomes.map(n => `<option value="${escapar(n)}">${escapar(n)}</option>`).join("");
+        sel.value = nomes.includes(atual) ? atual : (nomes[0] || "");
+        chaveSelect = chave;
+    }
+
+    /* variáveis da máquina selecionada */
+    const mm = modeloPorNome(sel.value);
+    const opcoes = [];
+    if (mm) {
+        mm.medidas.forEach(c => opcoes.push({ v: c, t: infoCampo(c).nome }));
+        mm.acumulados.forEach(c => {
+            opcoes.push({ v: "rate:" + c, t: `${infoCampo(c).nome} — ritmo (/h)` });
+            opcoes.push({ v: c, t: `${infoCampo(c).nome} (acumulado)` });
+        });
+    }
+    const vs = document.getElementById("varSelect");
+    const chaveVar = opcoes.map(o => o.v).join("|");
+    if (vs.dataset.chave !== chaveVar) {
+        const atual = vs.value;
+        vs.innerHTML = opcoes.map(o => `<option value="${escapar(o.v)}">${escapar(o.t)}</option>`).join("");
+        vs.value = opcoes.some(o => o.v === atual) ? atual : (opcoes[0] ? opcoes[0].v : "");
+        vs.dataset.chave = chaveVar;
+    }
+
+    /* variáveis para comparação entre máquinas */
+    const medidasTodas = [...new Set(modelo.flatMap(m => m.medidas))]
+        .sort((a, b) => PRIORIDADE.indexOf(a) - PRIORIDADE.indexOf(b));
+    const bx = document.getElementById("boxVarSelect");
+    const chaveB = medidasTodas.join("|");
+    if (chaveB !== chaveBox) {
+        const atual = bx.value;
+        bx.innerHTML = medidasTodas.map(c => `<option value="${escapar(c)}">${escapar(infoCampo(c).nome)}</option>`).join("");
+        bx.value = medidasTodas.includes(atual) ? atual : (medidasTodas[0] || "");
+        chaveBox = chaveB;
+    }
+}
+
+function renderSerieAtual() {
+    const canvas = document.getElementById("serieChart");
+    const mm = modeloPorNome(document.getElementById("machineSelect").value);
+    const sel = document.getElementById("varSelect").value;
+
+    if (!mm || !sel) {
+        desenharLinhas(canvas, { pontos: [], fmt: String });
+        return;
+    }
+
+    const ehRitmo = sel.startsWith("rate:");
+    const campo = ehRitmo ? sel.slice(5) : sel;
+    const info = infoCampo(campo);
+
+    let pontos = serieCampo(mm, campo);
+    let base = null, un = info.un, casas = info.casas, titulo = info.nome;
+
+    if (ehRitmo) {
+        pontos = ritmo(pontos);
+        un = "/h"; casas = 1; titulo = `${info.nome} — ritmo`;
+    } else {
+        base = mm.base[campo];
+    }
+
+    const n = Number(document.getElementById("janelaSelect").value);
+    if (n > 0) pontos = pontos.slice(-n);
+
+    const fmt = v => numero(v, casas);
+    const bandas = [], refs = [];
+
+    if (base && base.sd > 0) {
+        bandas.push({ y1: base.mu - 2 * base.sd, y2: base.mu + 2 * base.sd, cor: "rgba(30,138,90,.10)" });
+        refs.push({ v: base.mu, cor: "#1E8A5A", rotulo: "linha de base", tracejado: true });
+    }
+
+    const lim = (LIMITES_TECNICOS[mm.nome] || {})[campo];
+    if (lim && !ehRitmo) {
+        if (lim.min != null) refs.push({ v: lim.min, cor: "#ED0007", rotulo: "limite mín.", tracejado: true });
+        if (lim.max != null) refs.push({ v: lim.max, cor: "#ED0007", rotulo: "limite máx.", tracejado: true });
+    }
+
+    desenharLinhas(canvas, { pontos, cor: "#26282B", bandas, refs, fmt, un, quebra: LACUNA_MS });
+
+    document.getElementById("serieTitulo").textContent = `${titulo} · ${mm.nome}`;
+    const ul = pontos[pontos.length - 1];
+    let resumo = ul ? `Último: ${fmt(ul.v)} ${un}`.trim() : "Sem dados suficientes nesta janela";
+    if (base && base.sd > 0) {
+        resumo += ` · Faixa de referência: ${fmt(base.mu - 2 * base.sd)} a ${fmt(base.mu + 2 * base.sd)}`;
+    }
+    document.getElementById("serieResumo").textContent = resumo;
+}
+
+function renderBoxplot() {
+    const campo = document.getElementById("boxVarSelect").value;
+    const info = infoCampo(campo);
+    const grupos = modelo
+        .filter(m => m.medidas.includes(campo))
+        .map(m => {
+            const vals = serieCampo(m, campo).map(p => p.v);
+            return { nome: m.nome, vals, st: estatisticas(vals) };
+        })
+        .filter(g => g.st);
+
+    desenharBoxplot(document.getElementById("boxChart"), grupos, info);
+    document.getElementById("boxResumo").textContent =
+        `${info.nome}${info.un ? " (" + info.un + ")" : ""} · ${grupos.length} máquina(s) com esta variável`;
+}
+
+function renderDisponibilidade() {
+    const el = document.getElementById("disponibilidadeBars");
+    if (!modelo.length) { el.innerHTML = '<div class="empty">Aguardando histórico...</div>'; return; }
+
+    el.innerHTML = modelo.map(m => {
+        const c = { OPERANDO: 0, MANUTENCAO: 0, PARADA: 0, OUTROS: 0 };
+        m.linhas.forEach(l => {
+            const s = l.status.toUpperCase();
+            if (s in c) c[s]++; else c.OUTROS++;
+        });
+        const tot = m.linhas.length || 1;
+        const pct = k => c[k] / tot * 100;
+        const segmentos = Object.keys(c)
+            .filter(k => c[k] > 0)
+            .map(k => `<div title="${k}: ${c[k]}" style="width:${pct(k)}%;background:${CORES_STATUS[k]}"></div>`)
+            .join("");
+        return `
+        <div class="disp-row">
+            <div class="disp-head">
+                <span class="machine-tag">${escapar(m.nome)}</span>
+                <strong>${numero(pct("OPERANDO"), 1)}%</strong>
+            </div>
+            <div class="bar">${segmentos}</div>
+            <div class="disp-foot">
+                Operando ${numero(pct("OPERANDO"), 0)}% · Manutenção ${numero(pct("MANUTENCAO"), 0)}% · Parada ${numero(pct("PARADA"), 0)}%
+            </div>
+        </div>`;
+    }).join("") + `
+        <div class="legend">
+            <span><i style="background:${CORES_STATUS.OPERANDO}"></i>Operando</span>
+            <span><i style="background:${CORES_STATUS.MANUTENCAO}"></i>Manutenção</span>
+            <span><i style="background:${CORES_STATUS.PARADA}"></i>Parada</span>
+        </div>`;
+}
+
+function renderEstatisticas() {
+    const tb = document.getElementById("statsBody");
+    const linhas = [];
+
+    modelo.forEach(m => m.medidas.forEach(c => {
+        const vals = serieCampo(m, c).map(p => p.v);
+        const st = estatisticas(vals);
+        if (!st) return;
+        const ul = vals[vals.length - 1];
+        const base = m.base[c];
+        const r = classificar(m.nome, c, ul, base);
+        const info = infoCampo(c);
+        const situacao = TENDENCIA.includes(c) ? '<span class="pill na">Tendência</span>' : pillNivel(r.nivel);
+        const z = r.z === null ? "—" : `${r.z > 0 ? "+" : ""}${numero(r.z, 2)} σ`;
+        const ref = base ? `${numero(base.mu, info.casas)} ± ${numero(base.sd, 2)}` : "—";
+
+        linhas.push(`
+        <tr>
+            <td class="machine-tag">${escapar(m.nome)}</td>
+            <td>${escapar(info.nome)}</td>
+            <td>${escapar(fmtVal(c, ul))}</td>
+            <td>${numero(st.media, info.casas)}</td>
+            <td>${numero(st.min, info.casas)}</td>
+            <td>${numero(st.max, info.casas)}</td>
+            <td>${numero(st.desvio, 2)}</td>
+            <td>${ref}</td>
+            <td>${z}</td>
+            <td>${situacao}</td>
+        </tr>`);
+    }));
+
+    tb.innerHTML = linhas.length
+        ? linhas.join("")
+        : '<tr><td colspan="10" class="empty">Aguardando histórico...</td></tr>';
+}
+
+function renderIndicadores() {
+    const tb = document.getElementById("indicadoresBody");
+    if (!modelo.length) return;
+
+    tb.innerHTML = modelo.map(m => {
+        const prod = ultimoValor(m, "producao");
+        const rp = m.acumulados.includes("producao") ? ritmo(serieCampo(m, "producao")) : [];
+        const ritmoAtual = rp.length ? rp[rp.length - 1].v : null;
+
+        const campoRefugo = m.acumulados.includes("rejeitados") ? "rejeitados"
+                          : m.acumulados.includes("defeitos") ? "defeitos" : null;
+        const refugo = campoRefugo ? ultimoValor(m, campoRefugo) : null;
+        const taxa = refugo !== null && prod > 0 ? refugo / prod * 100 : null;
+
+        const ops = m.linhas.filter(l => l.status === "OPERANDO").length;
+        const disp = m.linhas.length ? ops / m.linhas.length * 100 : null;
+
+        return `
+        <tr>
+            <td class="machine-tag">${escapar(m.nome)}</td>
+            <td>${numero(prod, 0)}</td>
+            <td>${numero(ritmoAtual, 0)}</td>
+            <td>${campoRefugo ? `${numero(refugo, 0)} <small>(${infoCampo(campoRefugo).nome.toLowerCase()})</small>` : "—"}</td>
+            <td>${taxa !== null ? numero(taxa, 2) + " %" : "—"}</td>
+            <td>${numero(ultimoValor(m, "falhas"), 0)}</td>
+            <td>${numero(ultimoValor(m, "paradas"), 0)}</td>
+            <td>${numero(ultimoValor(m, "desgaste"), 2)}</td>
+            <td>${disp !== null ? numero(disp, 1) + " %" : "—"}</td>
+        </tr>`;
+    }).join("") || '<tr><td colspan="9" class="empty">Aguardando histórico...</td></tr>';
+}
+
+function renderEventos() {
+    const tb = document.getElementById("eventosBody");
+    const lista = eventos();
+
+    tb.innerHTML = lista.length ? lista.map(e => {
+        const estadoCls = e.status === "OPERANDO" ? "ok" : e.status === "MANUTENCAO" ? "warn" : "bad";
+        const pillStatus = e.status ? `<span class="pill ${estadoCls}">${escapar(e.status)}</span>` : "—";
+        const flags = e.flags.length
+            ? e.flags.map(f => {
+                const detalhe = f.r.z !== null ? `${f.r.z > 0 ? "+" : ""}${numero(f.r.z, 1)}σ` : f.r.motivo;
+                return `${escapar(infoCampo(f.c).nome)} (${escapar(detalhe)})`;
+              }).join(", ")
+            : "—";
+        return `
+        <tr>
+            <td>${escapar(new Date(e.t).toLocaleString("pt-BR"))}</td>
+            <td class="machine-tag">${escapar(e.maquina)}</td>
+            <td>${pillStatus}</td>
+            <td>${flags}</td>
+        </tr>`;
+    }).join("") : '<tr><td colspan="4" class="empty">Nenhum evento registrado no histórico carregado.</td></tr>';
+}
+
+function renderResumo(maquinas) {
+    const el = document.getElementById("operationalSummary");
+    const total = maquinas.length || 1;
+    const cont = k => maquinas.filter(m => categoria(m) === k).length;
+
+    const itens = [
+        ["Operando", cont("ok"), "#1E8A5A"],
+        ["Atenção / manutenção", cont("warn"), "#E09A00"],
+        ["Parada / falha", cont("bad"), "#ED0007"],
+        ["Sem comunicação / outros", cont("off") + cont("other"), "#8A9097"]
+    ];
+
+    el.innerHTML = `
+        <div style="margin-bottom:24px">
+            <div style="display:flex;justify-content:space-between;align-items:end;margin-bottom:10px">
+                <span style="font-size:12px;color:#8A9097">Equipamentos monitorados</span>
+                <strong style="font-size:25px">${maquinas.length}</strong>
+            </div>
+            <div style="height:9px;background:#E4E7EA;border-radius:10px;overflow:hidden;display:flex">
+                ${itens.map(i => `<div style="width:${i[1] / total * 100}%;background:${i[2]}"></div>`).join("")}
+            </div>
+        </div>
+        ${itens.map(i => `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin:17px 0">
+                <div style="display:flex;align-items:center;gap:9px;font-size:12px;color:#4B5157">
+                    <span style="width:9px;height:9px;border-radius:50%;background:${i[2]}"></span>
+                    ${i[0]}
+                </div>
+                <strong style="font-size:13px">${i[1]}</strong>
+            </div>`).join("")}
+    `;
+}
+
+function renderTabela() {
+    if (!dadosAtuais) return;
+
+    const busca = document.getElementById("searchInput").value.toLowerCase();
+    const filtro = document.getElementById("statusFilter").value;
+
+    const recentes = (dadosAtuais.recentes || []).filter(r => {
+        const nome = String(r.maquina || "").toLowerCase();
+        const correspondeNome = nome.includes(busca);
+        const correspondeStatus =
+            !filtro ||
+            (filtro === "operacional" && statusOperacional(r.status)) ||
+            (filtro === "alerta" && !statusOperacional(r.status));
+        return correspondeNome && correspondeStatus;
+    });
+
+    const tbody = document.getElementById("readingsTable");
+
+    if (!recentes.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">Nenhuma leitura encontrada.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = recentes.map(r => {
+        const cls = statusClasse(r.status);
+        const cor = cls === "danger" ? "#ED0007" : cls === "warning" ? "#8A5A00" : "#1E8A5A";
+        return `
+        <tr>
+            <td>${escapar(dataHora(r.timestamp))}</td>
+            <td class="machine-tag">${escapar(r.maquina ?? "--")}</td>
+            <td>${numero(r.temperatura)} °C</td>
+            <td>${numero(r.vibracao, 2)}</td>
+            <td>${numero(r.pressao)}</td>
+            <td>${numero(r.producao, 0)}</td>
+            <td><span class="pill" style="background:transparent;color:${cor};padding:0">${escapar(r.status ?? "Sem status")}</span></td>
+        </tr>`;
+    }).join("");
+}
+
+function renderAnalise() {
+    renderSerieAtual();
+    renderBoxplot();
+    renderDisponibilidade();
+    renderEstatisticas();
+    renderIndicadores();
+    renderEventos();
+}
+
+function selecionarMaquina(nome) {
+    document.getElementById("machineSelect").value = nome;
+    renderSeletores();
+    renderAnalise();
+    renderMaquinas();
+    document.querySelector(".analytics-grid").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function baixarCSV() {
+    window.location.href = API + "/api/csv";
+}
+
+/* ============================================================
+   CICLO DE COLETA
+   ============================================================ */
+
+async function atualizarEstado() {
+    if (carregandoEstado) return;
+    carregandoEstado = true;
+    try {
+        const r = await fetch(API + "/api/estado", { cache: "no-store" });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        dadosAtuais = await r.json();
+
+        const agora = Date.now();
+        (dadosAtuais.maquinas || []).forEach(m => {
+            const s = seen[m.maquina];
+            if (!s || s.qtd !== m.qtd) seen[m.maquina] = { qtd: m.qtd, t: agora };
+        });
+
+        renderKPIs();
+        renderMaquinas();
+        renderSeletores();
+        renderResumo(dadosAtuais.maquinas || []);
+        renderTabela();
+    } catch (erro) {
+        console.error("Falha ao atualizar estado:", erro);
+        document.getElementById("connectionDot").className = "dot off";
+        document.getElementById("connectionText").textContent =
+            "Sem contato com o coletor (rode o Python e deixe o terminal aberto)";
+    } finally {
+        carregandoEstado = false;
+    }
+}
+
+async function atualizarHistorico() {
+    if (carregandoHist) return;
+    carregandoHist = true;
+    try {
+        const r = await fetch(API + `/api/historico?limite=${LIMITE_HISTORICO}`, { cache: "no-store" });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        modelo = construirModelo(await r.json());
+        renderSeletores();
+        renderKPIs();
+        renderMaquinas();
+        renderAnalise();
+    } catch (erro) {
+        console.error("Falha ao carregar histórico:", erro);
+    } finally {
+        carregandoHist = false;
+    }
+}
+
+/* ============================================================
+   EVENTOS E INICIALIZAÇÃO
+   ============================================================ */
+
+document.getElementById("machineSelect").addEventListener("change", () => {
+    renderSeletores();
+    renderMaquinas();
+    renderAnalise();
+});
+document.getElementById("varSelect").addEventListener("change", renderSerieAtual);
+document.getElementById("janelaSelect").addEventListener("change", renderSerieAtual);
+document.getElementById("boxVarSelect").addEventListener("change", renderBoxplot);
+window.addEventListener("resize", () => { if (modelo.length) renderAnalise(); });
+
+ativarTooltip(document.getElementById("serieChart"), document.getElementById("tooltipSerie"));
+
+/* ---------- menu lateral: rola até a seção e destaca o item ativo ---------- */
+
+const itensMenu = [...document.querySelectorAll(".menu-item[data-alvo]")];
+
+function marcarMenu(item) {
+    itensMenu.forEach(i => i.classList.toggle("active", i === item));
+}
+
+itensMenu.forEach(item => {
+    item.addEventListener("click", () => {
+        marcarMenu(item);
+        const alvo = item.dataset.alvo;
+        if (alvo === "topo") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            return;
+        }
+        const destino = document.getElementById(alvo);
+        if (destino) destino.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+});
+
+/* destaca no menu a seção que está visível na tela */
+window.addEventListener("scroll", () => {
+    const limite = window.innerHeight * 0.35;
+    let atual = itensMenu[0];
+    itensMenu.forEach(item => {
+        const alvo = item.dataset.alvo;
+        if (alvo === "topo") return;
+        const el = document.getElementById(alvo);
+        if (el && el.getBoundingClientRect().top <= limite) atual = item;
+    });
+    if (window.scrollY < 80) atual = itensMenu[0];
+    marcarMenu(atual);
+}, { passive: true });
+
+atualizarEstado();
+atualizarHistorico();
+setInterval(atualizarEstado, INTERVALO_ESTADO);
+setInterval(atualizarHistorico, INTERVALO_HISTORICO);
+
+</script>
+
+</body>
+</html>

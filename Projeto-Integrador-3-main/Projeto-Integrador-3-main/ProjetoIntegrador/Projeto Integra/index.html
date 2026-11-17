@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de leituras</title>
+<style>
+  :root {
+    --bg:#e8ecef; --panel:#fff; --ink:#14202b; --muted:#5d6b78; --line:#d3dae0;
+    --ok:#1f7a4d; --warn:#b86e00; --bad:#b3261e; --accent:#1f5f8b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f161c; --panel:#18222b; --ink:#e6edf3; --muted:#93a1ae; --line:#2a3744; --ok:#47c585; --warn:#e8a23a; --bad:#ff6b61; --accent:#6bb3e6; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 "Segoe UI", system-ui, sans-serif; font-variant-numeric:tabular-nums; }
+  header { display:flex; flex-wrap:wrap; align-items:center; gap:14px; padding:14px 22px; background:var(--panel); border-bottom:1px solid var(--line); }
+  h1 { font-size:1.15rem; margin:0; font-weight:650; }
+  .status { display:flex; align-items:center; gap:8px; font-weight:600; }
+  .dot { width:11px; height:11px; border-radius:50%; background:var(--muted); }
+  .dot.ok { background:var(--ok); } .dot.bad { background:var(--bad); }
+  .grow { flex:1; }
+  .meta { color:var(--muted); font-size:.88rem; }
+  select, a.btn { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:var(--panel); color:var(--ink); text-decoration:none; cursor:pointer; }
+  select:focus-visible, a.btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  main { max-width:1180px; margin:0 auto; padding:20px 22px 40px; display:grid; gap:20px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px 18px; }
+  h2 { font-size:1rem; margin:0 0 12px; font-weight:650; }
+  .scroll { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:.92rem; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; }
+  td.n { text-align:right; } th.n { text-align:right; }
+  .badge { display:inline-block; padding:2px 9px; border-radius:99px; font-size:.82rem; font-weight:600; border:1px solid currentColor; }
+  .badge.ok { color:var(--ok); } .badge.warn { color:var(--warn); } .badge.bad { color:var(--bad); }
+  .machine { font-weight:650; }
+  canvas { width:100%; height:240px; display:block; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:10px; font-size:.86rem; color:var(--muted); }
+  .legend i { display:inline-block; width:12px; height:3px; margin-right:6px; vertical-align:middle; border-radius:2px; }
+  .erro { background:color-mix(in srgb, var(--bad) 12%, var(--panel)); border-color:var(--bad); }
+  .vazio { color:var(--muted); padding:14px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel de leituras</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Conectando…</span></div>
+  <span class="meta" id="meta"></span>
+  <span class="grow"></span>
+  <label class="meta">Atualizar a cada
+    <select id="intervalo">
+      <option value="2000">2 s</option>
+      <option value="5000" selected>5 s</option>
+      <option value="10000">10 s</option>
+      <option value="30000">30 s</option>
+    </select>
+  </label>
+  <a class="btn" href="/api/csv">Baixar CSV</a>
+</header>
+
+<main>
+  <section id="erroBox" class="erro" hidden>
+    <strong>A coleta está falhando.</strong>
+    <div id="erroTxt"></div>
+    <div class="meta">Confira se você está na rede "nico", se o IP e a porta estão certos e se o servidor está ligado.</div>
+  </section>
+
+  <section>
+    <h2>Máquinas (última leitura)</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Máquina</th><th>Status</th><th class="n">Temperatura</th><th class="n">Vibração</th><th class="n">Pressão</th><th class="n">Produção</th><th>Hora da leitura</th><th class="n">Leituras salvas</th></tr></thead>
+      <tbody id="maquinas"></tbody>
+    </table></div>
+    <div class="vazio" id="vazioMaq" hidden>Ainda não chegou nenhuma leitura. Confira se o ESP está enviando dados.</div>
+  </section>
+
+  <section>
+    <h2>Temperatura nas últimas leituras</h2>
+    <canvas id="grafico"></canvas>
+    <div class="legend" id="legenda"></div>
+  </section>
+
+  <section>
+    <h2>Leituras mais recentes</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Hora</th><th>Máquina</th><th>Status</th><th class="n">Temp.</th><th class="n">Vibração</th><th class="n">Pressão</th><th class="n">Produção</th></tr></thead>
+      <tbody id="recentes"></tbody>
+    </table></div>
+  </section>
+</main>
+
+<script>
+const CORES = ["#1f5f8b", "#c0562b", "#2f8f5b", "#8a4fb8", "#b8890b", "#c2386b", "#3b8fa6"];
+const $ = id => document.getElementById(id);
+let timer = null;
+
+function fmt(v) { return v === null || v === undefined ? "–" : v; }
+function hora(ts) {
+  if (!ts) return "–";
+  const d = new Date(ts);
+  return isNaN(d) ? ts : d.toLocaleTimeString("pt-BR");
+}
+function badge(status) {
+  const s = (status || "").toLowerCase();
+  const cls = s === "operando" ? "ok" : (s.includes("parad") || s.includes("falha") || s.includes("erro")) ? "bad" : "warn";
+  const el = document.createElement("span");
+  el.className = "badge " + cls;
+  el.textContent = status || "–";
+  return el;
+}
+function linha(celulas) {
+  const tr = document.createElement("tr");
+  for (const c of celulas) {
+    const td = document.createElement("td");
+    if (c.n) td.className = "n";
+    if (c.cls) td.classList.add(c.cls);
+    if (c.el) td.appendChild(c.el); else td.textContent = c.t;
+    tr.appendChild(td);
+  }
+  return tr;
+}
+
+function desenhar(serie) {
+  const cv = $("grafico"), dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const g = cv.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.body);
+  const nomes = Object.keys(serie);
+  const vals = nomes.flatMap(n => serie[n].map(p => p[1]).filter(v => v !== null));
+  if (!vals.length) { g.fillStyle = css.getPropertyValue("--muted"); g.fillText("Sem dados de temperatura ainda.", 12, 24); $("legenda").textContent = ""; return; }
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (min === max) { min -= 1; max += 1; }
+  const pad = { l: 40, r: 10, t: 10, b: 20 };
+  const X = (i, n) => pad.l + (n <= 1 ? 0 : i / (n - 1)) * (w - pad.l - pad.r);
+  const Y = v => pad.t + (1 - (v - min) / (max - min)) * (h - pad.t - pad.b);
+  g.strokeStyle = css.getPropertyValue("--line"); g.fillStyle = css.getPropertyValue("--muted"); g.font = "12px sans-serif";
+  for (let k = 0; k <= 4; k++) {
+    const v = min + (max - min) * k / 4, y = Y(v);
+    g.beginPath(); g.moveTo(pad.l, y); g.lineTo(w - pad.r, y); g.stroke();
+    g.fillText(v.toFixed(0), 6, y + 4);
+  }
+  $("legenda").textContent = "";
+  nomes.forEach((nome, idx) => {
+    const cor = CORES[idx % CORES.length], pts = serie[nome];
+    g.strokeStyle = cor; g.lineWidth = 2; g.beginPath();
+    let ini = false;
+    pts.forEach((p, i) => {
+      if (p[1] === null) return;
+      const x = X(i, pts.length), y = Y(p[1]);
+      if (!ini) { g.moveTo(x, y); ini = true; } else g.lineTo(x, y);
+    });
+    g.stroke();
+    const item = document.createElement("span");
+    const sw = document.createElement("i"); sw.style.background = cor;
+    item.append(sw, nome); $("legenda").appendChild(item);
+  });
+}
+
+async function atualizar() {
+  try {
+    const r = await fetch("/api/estado", { cache: "no-store" });
+    const d = await r.json();
+    const c = d.coletor;
+    $("dot").className = "dot " + (c.ok ? "ok" : "bad");
+    $("statusTxt").textContent = c.ok ? "Coletando" : "Sem conexão com a API";
+    $("meta").textContent = `${d.total} leituras salvas · última coleta ${c.ultimo_sucesso || "–"} · ${d.base}`;
+    $("erroBox").hidden = c.ok;
+    $("erroTxt").textContent = c.erro || "";
+
+    const tb = $("maquinas"); tb.textContent = "";
+    $("vazioMaq").hidden = d.maquinas.length > 0;
+    d.maquinas.forEach(m => tb.appendChild(linha([
+      { t: m.maquina, cls: "machine" }, { el: badge(m.status) },
+      { t: fmt(m.temperatura), n: 1 }, { t: fmt(m.vibracao), n: 1 }, { t: fmt(m.pressao), n: 1 }, { t: fmt(m.producao), n: 1 },
+      { t: hora(m.timestamp) }, { t: m.qtd, n: 1 }
+    ])));
+
+    const tr = $("recentes"); tr.textContent = "";
+    d.recentes.forEach(m => tr.appendChild(linha([
+      { t: hora(m.timestamp) }, { t: m.maquina }, { el: badge(m.status) },
+      { t: fmt(m.temperatura), n: 1 }, { t: fmt(m.vibracao), n: 1 }, { t: fmt(m.pressao), n: 1 }, { t: fmt(m.producao), n: 1 }
+    ])));
+
+    desenhar(d.serie);
+  } catch (e) {
+    $("dot").className = "dot bad";
+    $("statusTxt").textContent = "Painel sem contato com o coletor (coletor.py está rodando?)";
+  }
+}
+
+function agendar() {
+  clearInterval(timer);
+  timer = setInterval(atualizar, Number($("intervalo").value));
+}
+$("intervalo").addEventListener("change", agendar);
+window.addEventListener("resize", atualizar);
+atualizar(); agendar();
+</script>
+</body>
+</html>
